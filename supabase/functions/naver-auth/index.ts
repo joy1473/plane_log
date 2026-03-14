@@ -65,20 +65,25 @@ Deno.serve(async (req) => {
     const naverEmail = `naver_${naverId}@naver.local`
     const userMeta = { naver_id: naverId, full_name: nickname, avatar_url: avatarUrl, provider: 'naver' }
 
-    // 기존 사용자 찾기
-    const { data: { users } } = await supabase.auth.admin.listUsers()
-    let user = users?.find((u: { email?: string }) => u.email === naverEmail)
+    // 기존 사용자 생성 시도 (이미 있으면 에러 → 업데이트)
+    let user
+    const { data: createData, error: createError } = await supabase.auth.admin.createUser({
+      email: naverEmail,
+      email_confirm: true,
+      user_metadata: userMeta,
+    })
 
-    if (!user) {
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: naverEmail,
-        email_confirm: true,
-        user_metadata: userMeta,
-      })
-      if (error) throw error
-      user = data.user
+    if (createError && createError.message.includes('already been registered')) {
+      // 기존 사용자 찾아서 업데이트
+      const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+      user = users?.find((u: { email?: string }) => u.email === naverEmail)
+      if (user) {
+        await supabase.auth.admin.updateUserById(user.id, { user_metadata: userMeta })
+      }
+    } else if (createError) {
+      throw createError
     } else {
-      await supabase.auth.admin.updateUserById(user.id, { user_metadata: userMeta })
+      user = createData.user
     }
 
     // 4) 세션 생성 (magic link 토큰 발급)

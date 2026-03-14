@@ -64,22 +64,24 @@ Deno.serve(async (req) => {
     const kakaoEmail = `kakao_${kakaoId}@kakao.local`
     const userMeta = { kakao_id: kakaoId, full_name: nickname, avatar_url: avatarUrl, provider: 'kakao' }
 
-    // 기존 사용자 찾기
-    const { data: { users } } = await supabase.auth.admin.listUsers()
-    let user = users?.find((u) => u.email === kakaoEmail)
+    // 사용자 생성 시도 (이미 있으면 에러 → 업데이트)
+    let user
+    const { data: createData, error: createError } = await supabase.auth.admin.createUser({
+      email: kakaoEmail,
+      email_confirm: true,
+      user_metadata: userMeta,
+    })
 
-    if (!user) {
-      // 신규 생성
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: kakaoEmail,
-        email_confirm: true,
-        user_metadata: userMeta,
-      })
-      if (error) throw error
-      user = data.user
+    if (createError && createError.message.includes('already been registered')) {
+      const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+      user = users?.find((u) => u.email === kakaoEmail)
+      if (user) {
+        await supabase.auth.admin.updateUserById(user.id, { user_metadata: userMeta })
+      }
+    } else if (createError) {
+      throw createError
     } else {
-      // 프로필 업데이트
-      await supabase.auth.admin.updateUserById(user.id, { user_metadata: userMeta })
+      user = createData.user
     }
 
     // 4) 세션 생성 (magic link 토큰 발급 → OTP로 변환)
