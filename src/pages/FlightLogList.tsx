@@ -7,6 +7,8 @@ import type { FlightLog } from '../types/flight-log'
 const FlightMap = lazy(() => import('../components/FlightMap'))
 
 type FilterMode = 'all' | 'year' | 'month' | 'custom'
+type SortKey = 'flight_date' | 'airfield' | 'flight_duration_min' | 'instructor_name' | 'training_purpose' | 'landing_count'
+type SortDir = 'asc' | 'desc'
 
 export default function FlightLogList() {
   const [allLogs, setAllLogs] = useState<(FlightLog & { id: string })[]>([])
@@ -20,6 +22,8 @@ export default function FlightLogList() {
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('flight_date')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   async function loadLogs() {
     setLoading(true)
@@ -85,6 +89,36 @@ export default function FlightLogList() {
 
     return { logs: filtered, dateLabel: label }
   }, [allLogs, filterMode, filterYear, filterMonth, customFrom, customTo])
+
+  // 정렬
+  const sortedLogs = useMemo(() => {
+    const sorted = [...logs]
+    sorted.sort((a, b) => {
+      let va: string | number = ''
+      let vb: string | number = ''
+      switch (sortKey) {
+        case 'flight_date': va = a.flight_date; vb = b.flight_date; break
+        case 'airfield': va = a.airfield; vb = b.airfield; break
+        case 'flight_duration_min': va = a.flight_duration_min; vb = b.flight_duration_min; break
+        case 'instructor_name': va = a.instructor_name ?? ''; vb = b.instructor_name ?? ''; break
+        case 'training_purpose': va = a.training_purpose ?? ''; vb = b.training_purpose ?? ''; break
+        case 'landing_count': va = a.landing_count ?? 0; vb = b.landing_count ?? 0; break
+      }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1
+      if (va > vb) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+    return sorted
+  }, [logs, sortKey, sortDir])
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
 
   async function handleDelete(id: string, date: string) {
     if (!confirm(`${date} 비행 기록을 삭제하시겠습니까?`)) return
@@ -249,17 +283,17 @@ export default function FlightLogList() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
-                  <th className="px-3 py-2 text-left">날짜</th>
-                  <th className="px-3 py-2 text-left">이착륙장</th>
-                  <th className="px-3 py-2 text-right">시간(분)</th>
-                  <th className="px-3 py-2 text-left">교관</th>
-                  <th className="px-3 py-2 text-left">훈련 목적</th>
-                  <th className="px-3 py-2 text-right">착륙</th>
+                  <SortTh label="날짜" sortKey="flight_date" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="이착륙장" sortKey="airfield" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="시간(분)" sortKey="flight_duration_min" align="right" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="교관" sortKey="instructor_name" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="훈련 목적" sortKey="training_purpose" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="착륙" sortKey="landing_count" align="right" current={sortKey} dir={sortDir} onSort={handleSort} />
                   <th className="px-3 py-2 w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {logs.map((log) => (
+                {sortedLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2">{log.flight_date}</td>
                     <td className="px-3 py-2">{log.airfield}</td>
@@ -303,6 +337,26 @@ class MapErrorBoundary extends Component<{ children: ReactNode }, { error: strin
     }
     return this.props.children
   }
+}
+
+function SortTh({ label, sortKey: key, align, current, dir, onSort }: {
+  label: string; sortKey: SortKey; align: 'left' | 'right'
+  current: SortKey; dir: SortDir; onSort: (k: SortKey) => void
+}) {
+  const active = current === key
+  return (
+    <th
+      className={`px-3 py-2 text-${align} cursor-pointer select-none hover:bg-gray-100 transition-colors`}
+      onClick={() => onSort(key)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        <span className={`text-[10px] ${active ? 'text-blue-700' : 'text-gray-300'}`}>
+          {active ? (dir === 'asc' ? '\u25B2' : '\u25BC') : '\u25BC'}
+        </span>
+      </span>
+    </th>
+  )
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {
