@@ -54,7 +54,8 @@ export async function handleKakaoCallback(): Promise<Session | null> {
     return authData.session
   } catch (err) {
     console.error('카카오 로그인 처리 실패:', err)
-    window.history.replaceState({}, '', '/')
+    const msg = err instanceof Error ? err.message : String(err)
+    window.history.replaceState({}, '', `/?auth_error=${encodeURIComponent(msg)}`)
     return null
   }
 }

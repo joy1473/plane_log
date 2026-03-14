@@ -56,10 +56,22 @@ function App() {
     )
   }
 
+  // 카카오 로그인 에러 표시
+  const authError = new URLSearchParams(window.location.search).get('auth_error')
+
   const isDev = import.meta.env.DEV && import.meta.env.VITE_SUPABASE_URL?.includes('placeholder')
 
   if (!session && !devBypass) {
-    return <Login onDevBypass={isDev ? () => setDevBypass(true) : undefined} />
+    return (
+      <>
+        {authError && (
+          <div className="bg-red-50 border-b border-red-200 text-red-700 text-sm text-center py-3 px-4">
+            카카오 로그인 실패: {authError}
+          </div>
+        )}
+        <Login onDevBypass={isDev ? () => setDevBypass(true) : undefined} />
+      </>
+    )
   }
 
   const displayName = session ? getDisplayName(session.user) : '개발 모드'
