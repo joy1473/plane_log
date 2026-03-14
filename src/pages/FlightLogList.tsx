@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense, Component, type ReactNode } from 'react'
-import { fetchFlightLogs, calculateTotalHours } from '../lib/supabase-flight-log'
+import { fetchFlightLogs, deleteFlightLog, calculateTotalHours } from '../lib/supabase-flight-log'
 import { getCachedFlightLogs, cacheFlightLogs } from '../lib/offline-store'
 import type { FlightLog } from '../types/flight-log'
 
@@ -8,6 +8,7 @@ const FlightMap = lazy(() => import('../components/FlightMap'))
 export default function FlightLogList() {
   const [logs, setLogs] = useState<(FlightLog & { id: string })[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   async function loadLogs() {
@@ -39,6 +40,19 @@ export default function FlightLogList() {
   useEffect(() => {
     loadLogs()
   }, [])
+
+  async function handleDelete(id: string, date: string) {
+    if (!confirm(`${date} 비행 기록을 삭제하시겠습니까?`)) return
+    setDeleting(id)
+    try {
+      await deleteFlightLog(id)
+      setLogs((prev) => prev.filter((l) => l.id !== id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '삭제 실패')
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   const stats = calculateTotalHours(logs)
 
@@ -87,6 +101,7 @@ export default function FlightLogList() {
                   <th className="px-3 py-2 text-left">교관</th>
                   <th className="px-3 py-2 text-left">훈련 목적</th>
                   <th className="px-3 py-2 text-right">착륙</th>
+                  <th className="px-3 py-2 w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -98,6 +113,16 @@ export default function FlightLogList() {
                     <td className="px-3 py-2">{log.instructor_name ?? '-'}</td>
                     <td className="px-3 py-2">{log.training_purpose ?? '-'}</td>
                     <td className="px-3 py-2 text-right">{log.landing_count}</td>
+                    <td className="px-3 py-2 text-center">
+                      <button
+                        onClick={() => handleDelete(log.id, log.flight_date)}
+                        disabled={deleting === log.id}
+                        className="text-red-400 hover:text-red-600 disabled:opacity-30 text-xs"
+                        title="삭제"
+                      >
+                        {deleting === log.id ? '...' : '✕'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
