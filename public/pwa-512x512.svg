@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#1e40af"/>
+  <!-- Airplane body -->
+  <g transform="translate(256,230) rotate(-45)" fill="white">
+    <!-- Fuselage -->
+    <ellipse cx="0" cy="0" rx="20" ry="92" fill="white"/>
+    <!-- Wings -->
+    <ellipse cx="0" cy="-10" rx="116" ry="18" fill="white"/>
+    <!-- Tail horizontal -->
+    <ellipse cx="0" cy="72" rx="58" ry="11" fill="white"/>
+    <!-- Tail vertical -->
+    <ellipse cx="0" cy="56" rx="11" ry="36" fill="#93c5fd"/>
+  </g>
+  <!-- Logbook lines decoration -->
+  <rect x="72" y="390" width="160" height="10" rx="5" fill="#93c5fd" opacity="0.7"/>
+  <rect x="72" y="412" width="112" height="10" rx="5" fill="#93c5fd" opacity="0.5"/>
+  <rect x="280" y="390" width="160" height="10" rx="5" fill="#93c5fd" opacity="0.7"/>
+  <rect x="280" y="412" width="112" height="10" rx="5" fill="#93c5fd" opacity="0.5"/>
+  <!-- App title hint -->
+  <rect x="156" y="450" width="200" height="10" rx="5" fill="#60a5fa" opacity="0.4"/>
+</svg>

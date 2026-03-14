@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, lazy, Suspense, Component, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense, Component, type ReactNode } from 'react'
 import { fetchFlightLogs, deleteFlightLog, calculateTotalHours } from '../lib/supabase-flight-log'
 import { getCachedFlightLogs, cacheFlightLogs } from '../lib/offline-store'
 import { exportFlightLogsPdf } from '../lib/pdf-export'
@@ -25,7 +25,7 @@ export default function FlightLogList() {
   const [sortKey, setSortKey] = useState<SortKey>('flight_date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  async function loadLogs() {
+  const loadLogs = useCallback(async function loadLogs() {
     setLoading(true)
     setError('')
 
@@ -37,23 +37,23 @@ export default function FlightLogList() {
         await cacheFlightLogs(withId)
       } else {
         const cached = await getCachedFlightLogs()
-        setAllLogs(cached.reverse())
+        setAllLogs([...cached].reverse())
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '데이터 로드 실패')
       const cached = await getCachedFlightLogs()
       if (cached.length > 0) {
-        setAllLogs(cached.reverse())
+        setAllLogs([...cached].reverse())
         setError('오프라인 캐시에서 로드됨')
       }
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadLogs()
-  }, [])
+  }, [loadLogs])
 
   // 필터링된 로그
   const { logs, dateLabel } = useMemo(() => {
@@ -138,6 +138,14 @@ export default function FlightLogList() {
     exportFlightLogsPdf(sortedLogs, dateLabel)
   }
 
+  function sanitizeCsvValue(v: string): string {
+    // Prefix values starting with formula-injection characters to prevent Excel/Sheets execution
+    if (v.length > 0 && ['=', '+', '-', '@', '\t', '\r'].includes(v[0])) {
+      return '\t' + v
+    }
+    return v
+  }
+
   function handleExportCsv() {
     if (sortedLogs.length === 0) return
     const headers = ['날짜', '출발시간', '도착시간', '비행시간(분)', '이착륙장', '교관', '훈련목적', '착륙횟수', '비행고도', '교육기관', '비고']
@@ -155,7 +163,7 @@ export default function FlightLogList() {
       l.remarks ?? '',
     ])
     const bom = '\uFEFF'
-    const csv = bom + [headers, ...rows].map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const csv = bom + [headers, ...rows].map((r) => r.map((v) => `"${sanitizeCsvValue(v).replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -384,10 +392,11 @@ function SortTh({ label, sortKey: key, align, current, dir, onSort }: {
   label: string; sortKey: SortKey; align: 'left' | 'right'
   current: SortKey; dir: SortDir; onSort: (k: SortKey) => void
 }) {
+  const alignClass = { left: 'text-left', right: 'text-right', center: 'text-center' } as const
   const active = current === key
   return (
     <th
-      className={`px-3 py-2 text-${align} cursor-pointer select-none hover:bg-gray-100 transition-colors`}
+      className={`px-3 py-2 ${alignClass[align]} cursor-pointer select-none hover:bg-gray-100 transition-colors`}
       onClick={() => onSort(key)}
     >
       <span className="inline-flex items-center gap-1">

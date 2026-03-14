@@ -1,10 +1,36 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Component, type ReactNode } from 'react'
 import { onAuthStateChange, signOut, getSession, handleAuthCallback, getDisplayName, getAvatarUrl } from './lib/supabase-auth'
 import Login from './components/Login'
 import LightAircraftLogUpload from './components/LightAircraftLogUpload'
 import FlightLogList from './pages/FlightLogList'
 import { registerReconnectSync } from './lib/offline-store'
 import type { Session } from '@supabase/supabase-js'
+
+class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null }
+  static getDerivedStateFromError(err: Error) {
+    return { error: err }
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
+          <div className="bg-white rounded-lg shadow p-8 max-w-md w-full text-center">
+            <p className="text-red-600 font-semibold mb-2">오류가 발생했습니다</p>
+            <p className="text-gray-500 text-sm">{this.state.error.message}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-blue-700 text-white text-sm rounded hover:bg-blue-600"
+            >
+              새로고침
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // 앱 시작 시 재연결 자동 동기화 리스너 등록
 registerReconnectSync()
@@ -118,4 +144,10 @@ function App() {
   )
 }
 
-export default App
+export default function AppWithErrorBoundary() {
+  return (
+    <RootErrorBoundary>
+      <App />
+    </RootErrorBoundary>
+  )
+}

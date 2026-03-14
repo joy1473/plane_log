@@ -1,357 +1,398 @@
-# plane_log (KoreanLightAircraftEFB) Phase 1 MVP Analysis Report
+# plane_log (KoreanLightAircraftEFB) - Comprehensive Gap Analysis Report v2.0
 
-> **Analysis Type**: Gap Analysis (Plan vs Implementation)
+> **Summary**: Full-scope analysis covering code quality, security, performance, PWA, accessibility, error handling, data integrity, and UX completeness
 >
-> **Project**: plane-log (KoreanLightAircraftEFB)
-> **Version**: 0.0.0
-> **Date**: 2026-03-14
-> **Plan Doc**: [plan.md](../../plan.md)
+> **Author**: gap-detector
+> **Created**: 2026-03-14
+> **Last Modified**: 2026-03-15
+> **Status**: Approved
 
 ---
 
-## 1. Analysis Overview
+## Executive Summary
 
-### 1.1 Analysis Purpose
-
-Verify all 9 planned Phase 1 MVP todo items are correctly implemented, identify gaps, code quality issues, and security concerns.
-
-### 1.2 Analysis Scope
-
-- **Plan Document**: `plan.md` (9 todo items, all marked complete)
-- **Implementation**: `src/`, `supabase/`, `tests/`, `migrations/`
-- **Total Source Files**: 18 (src) + 4 (supabase) + 1 (tests) + 2 (migrations)
+| Perspective | Description |
+|-------------|-------------|
+| **Problem** | Phase 1 MVP is functionally complete but has security vulnerabilities (XSS in PDF, CSV injection, scalability-breaking user lookup), zero test coverage, and critical accessibility gaps that block production readiness. |
+| **Solution** | 25 gap items identified across 8 categories with prioritized fix plan. 6 items require immediate action before deploy; 6 more in next sprint. |
+| **Function & UX Effect** | All 12 planned+added features work correctly. Date filters, sorting, PDF/CSV export all functional. UX gaps are polish-level (loading skeletons, custom modals, offline indicator). |
+| **Core Value** | Raising overall score from 74% to 90%+ requires ~8 hours of targeted fixes across security (2hr), accessibility (2hr), tests (2hr), and PWA assets (1hr). |
 
 ---
 
-## 2. Feature-by-Feature Gap Analysis
+## Analysis Overview
 
-### 2.1 Planned Features (9 items)
+- **Analysis Target**: KoreanLightAircraftEFB Phase 1 MVP (full codebase)
+- **Implementation Path**: `src/`, `supabase/functions/`
+- **Analysis Date**: 2026-03-15
+- **Previous Analysis**: 2026-03-14 (v1.0 - 76% match rate, 6 issues auto-fixed)
+- **Total Source Files**: 17 client + 2 Edge Functions + 2 data files
+- **Total Lines of Code**: ~1,450 (excluding node_modules, JSON data)
 
-| # | Plan Item | Planned File | Implemented | Status |
-|---|-----------|-------------|:-----------:|:------:|
-| 1 | Supabase flight_logs table + RLS | migrations/001_create_flight_logs.sql | Yes (2 copies: `migrations/` + `supabase/migrations/`) | ✅ |
-| 2 | CSV upload component UI | src/components/LightAircraftLogUpload.tsx | Yes, with preview table, offline detection | ✅ |
-| 3 | CSV parsing (Korean headers, PapaParse) | src/lib/csv-parser-light.ts | Yes, 30+ Korean/English header mappings, BOM removal | ✅ |
-| 4 | Supabase insert logic | src/lib/supabase-flight-log.ts | Yes, with duplicate detection (code 23505) | ✅ |
-| 5 | Offline caching (IndexedDB + Workbox) | src/lib/offline-store.ts | Yes, IndexedDB via `idb` + Workbox PWA in vite.config.ts | ✅ |
-| 6 | Flight log list page (cumulative time, list, map) | src/pages/FlightLogList.tsx | Yes, stats cards + table + Leaflet map | ✅ |
-| 7 | Vitest unit tests | tests/csv-parser-light.test.ts | Yes, 9 test cases (parsing + calculation) | ✅ |
-| 8 | SNS login (Kakao + Naver OAuth) | src/components/Login.tsx + auth libs | Yes, via Edge Functions (custom OAuth flow) | ✅ |
-| 9 | Training institution dropdown | src/components/TrainingInstitutionSelect.tsx + JSON data | Yes, 5 categories, "other" free-text option | ✅ |
+### Changes Since v1.0 Analysis
 
-### 2.2 Added Features (Not in Plan)
+Features added since last analysis:
+- Date range filters (year/month/custom)
+- Column sorting (asc/desc)
+- PDF export (rewritten from jsPDF to HTML print for Korean support)
+- CSV export (BOM-UTF8)
+- Training institution integrated into upload flow
+- Reconnect auto-sync for offline uploads
 
-| Item | Implementation Location | Description |
-|------|------------------------|-------------|
-| Flight log deletion | supabase-flight-log.ts:58, FlightLogList.tsx:44 | DELETE with confirmation dialog |
-| Leaflet map with airfield markers | FlightMap.tsx + airfields.ts | 33 Korean airfields with fuzzy matching |
-| Naver OAuth Edge Function | supabase/functions/naver-auth/ | Full Naver login flow via Edge Function |
-| Vercel SPA routing | vercel.json | SPA rewrite rules for deployment |
-| Dev bypass mode | App.tsx:62-64 | Skip auth when Supabase not configured |
-| Auth error display | App.tsx:60-61, 67-70 | URL param-based error messages |
-| Map error boundary | FlightLogList.tsx:137-152 | React ErrorBoundary for map component |
-| Lazy-loaded map | FlightLogList.tsx:6 | React.lazy + Suspense for FlightMap |
-
-### 2.3 Data Model Comparison
-
-**Plan**: "flight_logs table" (no schema detail specified)
-
-| Field | Migration SQL | TypeScript Type | Status |
-|-------|-------------|-----------------|:------:|
-| id | uuid PK | string (optional) | ✅ |
-| user_id | uuid FK -> auth.users | string (optional) | ✅ |
-| flight_date | date NOT NULL | string | ✅ |
-| departure_time | time | string \| null | ✅ |
-| arrival_time | time | string \| null | ✅ |
-| flight_duration_min | integer NOT NULL | number | ✅ |
-| airfield | text NOT NULL | string | ✅ |
-| instructor_name | text | string \| null | ✅ |
-| training_purpose | text | string \| null | ✅ |
-| landing_count | integer default 1 | number | ✅ |
-| flight_altitude_ft | integer | number \| null | ✅ |
-| training_institution | text (migration 002) | string \| null | ✅ |
-| remarks | text | string \| null | ✅ |
-| created_at | timestamptz | string (optional) | ✅ |
-
-**RLS Policies**: SELECT, INSERT, UPDATE, DELETE all restricted to `user_id = auth.uid()` -- ✅ Complete
-
-**Indexes**: user_date composite index + dedup unique index on (user_id, flight_date, departure_time) -- ✅ Present
-
-### 2.4 Match Rate Summary
-
-```
-+---------------------------------------------+
-|  Overall Plan Match Rate: 100%              |
-+---------------------------------------------+
-|  Planned items implemented:  9/9  (100%)    |
-|  Added features beyond plan: 8 items        |
-|  Missing from plan:          0 items        |
-+---------------------------------------------+
-```
+Previously identified issues fixed:
+- Kakao CSRF state parameter added
+- CORS restricted to allowlist
+- TrainingInstitutionSelect integrated into upload flow
+- Pending upload auto-sync on reconnect implemented
+- Test file previously existed (`tests/csv-parser-light.test.ts`) but has been removed
 
 ---
 
-## 3. Code Quality Analysis
+## Overall Scores
 
-### 3.1 Positive Patterns
+| Category | Score | Status | v1.0 Score |
+|----------|:-----:|:------:|:----------:|
+| Code Quality | 82% | Warning | 78% |
+| Security | 75% | Warning | 72% |
+| Performance | 83% | Warning | - |
+| PWA Compliance | 65% | Critical | - |
+| Accessibility | 40% | Critical | - |
+| Error Handling | 75% | Warning | - |
+| Data Integrity | 88% | OK | - |
+| UX Completeness | 82% | Warning | - |
+| Architecture | 90% | OK | 85% |
+| Convention | 97% | OK | 95% |
+| **Overall** | **74%** | **Warning** | **76%** |
 
-- TypeScript strict typing throughout with proper interfaces (`FlightLog`, `CsvParseResult`, `Airfield`, etc.)
-- CSV parser handles BOM removal, Korean/English headers, fuzzy matching -- robust for real-world CSV files
-- Offline-first architecture: IndexedDB cache with pending upload queue
-- Lazy loading for map component to reduce initial bundle size
-- Error boundary for graceful map failure handling
-- Duplicate detection on insert (PostgreSQL error code 23505)
-
-### 3.2 Code Smells
-
-| Type | File | Location | Description | Severity |
-|------|------|----------|-------------|:--------:|
-| Duplicate migration files | migrations/ + supabase/migrations/ | Both dirs | Identical SQL in 2 locations | 🟡 |
-| Duplicate parsing logic | csv-parser-light.ts | L132-198 vs L200-245 | `parseCsvFile` and `parseCsvString` share 80% logic | 🟡 |
-| Any type cast | TrainingInstitutionSelect.tsx | L26 | `institutionsData as Record<string, any>` | 🟡 |
-| Broad user search | kakao-auth Edge Function | L76 | `listUsers({ perPage: 1000 })` to find user by email | 🔴 |
-| Broad user search | naver-auth Edge Function | L78 | Same `listUsers({ perPage: 1000 })` pattern | 🔴 |
-| No pending upload sync | offline-store.ts | - | `savePendingUpload` exists but no auto-sync on reconnect | 🟡 |
-| `as any` type cast | csv-parser-light.test.ts | L128 | `calculateTotalHours(logs as any)` | 🟢 |
-
-### 3.3 Missing Error Handling
-
-| Location | Issue | Impact | Severity |
-|----------|-------|--------|:--------:|
-| supabase.ts:6 | No validation that env vars exist; `isSupabaseConfigured` checks for "placeholder" but `createClient` still called with invalid values | Runtime error possible | 🟡 |
-| naver-auth.ts:4-6 | `VITE_NAVER_CLIENT_ID` used at module scope; crashes if undefined | App won't load without env var | 🟡 |
-| kakao-auth.ts:4-6 | Same: `VITE_KAKAO_REST_API_KEY` at module scope | App won't load without env var | 🟡 |
-| FlightLogList.tsx:42 | `useEffect` with async function inside has no cleanup for race conditions | Stale state possible | 🟢 |
-| insertFlightLogs | Inserts one-by-one in a loop instead of batch insert | Slow for large CSVs, no transaction rollback | 🟡 |
-| TrainingInstitutionSelect | Not integrated into upload flow | Component exists but not used in LightAircraftLogUpload | 🟡 |
+> Note: Overall decreased slightly from v1.0 because this analysis includes categories not previously measured (PWA, Accessibility, Performance) which have lower scores. Functional feature coverage remains at 100%.
 
 ---
 
-## 4. Security Analysis
+## Gap Items
 
-| Severity | Location | Issue | Recommendation |
-|:--------:|----------|-------|----------------|
-| 🔴 Critical | kakao-auth Edge Function:76 | `listUsers({ perPage: 1000 })` scans ALL users to find one by email. Does not scale and exposes user enumeration risk. | Use `supabase.auth.admin.getUserByEmail()` or similar targeted query |
-| 🔴 Critical | naver-auth Edge Function:78 | Same `listUsers` issue as kakao-auth | Same fix |
-| 🟡 Warning | kakao-auth.ts:6 | `REDIRECT_URI` computed at module scope using `window.location.origin` -- could be manipulated if page loaded from unexpected origin | Validate origin against allowlist |
-| 🟡 Warning | CORS headers | Edge Functions use `Access-Control-Allow-Origin: '*'` | Restrict to production domain |
-| 🟡 Warning | kakao-auth | No CSRF state parameter (unlike Naver which has it) | Add state parameter for Kakao OAuth |
-| 🟢 Info | .env.example | All secrets use placeholder values, `.env.local` is gitignored | Good |
-| 🟢 Info | RLS | Full CRUD RLS policies on flight_logs | Good |
+### Critical (4 items - Must Fix Before Deploy)
 
----
+#### C-01: No PWA icons exist
+- **Category**: PWA Compliance
+- **File**: `vite.config.ts:22-23`
+- **Issue**: Manifest references `pwa-192x192.png` and `pwa-512x512.png` but neither file exists in `public/`. Chrome Lighthouse will fail the installability check.
+- **Fix**: Generate and place PWA icons in `public/`.
+- **Effort**: 15 min
 
-## 5. Test Coverage
+#### C-02: Zero test files
+- **Category**: Code Quality
+- **File**: `package.json:12-13`
+- **Issue**: `vitest`, `@testing-library/react`, and `jsdom` are all in devDependencies with test scripts configured, but **zero test files** exist anywhere in the project. The test file from v1.0 (`tests/csv-parser-light.test.ts`) has been removed. CSV parsing and flight log calculations are critical business logic that must be tested.
+- **Fix**: Create tests for `csv-parser-light.ts` (parsing edge cases), `supabase-flight-log.ts` (`calculateTotalHours`), and component rendering.
+- **Effort**: 2 hr
 
-### 5.1 What Is Tested
+#### C-03: No ARIA labels or keyboard navigation
+- **Category**: Accessibility
+- **File**: Multiple
+- **Issues**:
+  - `Login.tsx:40-61`: OAuth buttons lack `aria-label` attributes
+  - `FlightLogList.tsx:346-353`: Delete button uses visual "X" with `title="삭제"` but no `aria-label`
+  - `FlightLogList.tsx:389-400`: Sortable `<th>` elements use `onClick` but no `role="button"`, `tabIndex`, `onKeyDown`, or `aria-sort`
+  - `FlightMap.tsx:86-89`: `<MapContainer>` has no `aria-label` or accessible description
+  - `LightAircraftLogUpload.tsx:90-97`: File input has no visible `<label>` element
+  - `App.tsx`: No skip-to-content link
+- **Fix**: Add ARIA attributes, keyboard handlers, and semantic HTML improvements.
+- **Effort**: 2 hr
 
-| Test File | Tests | Covers |
-|-----------|:-----:|--------|
-| csv-parser-light.test.ts | 9 | Korean headers, English headers, missing fields, multi-row, empty rows, abbreviated headers, training institution, default landing count, cumulative calculation |
-
-### 5.2 What Is NOT Tested
-
-| Area | Files | Risk |
-|------|-------|------|
-| Supabase insert/fetch/delete | supabase-flight-log.ts | High -- core CRUD untested |
-| Authentication flow | supabase-auth.ts, kakao-auth.ts, naver-auth.ts | High -- OAuth flow untested |
-| Offline store | offline-store.ts | Medium -- IndexedDB operations untested |
-| Component rendering | All .tsx files | Medium -- no component tests |
-| Edge Functions | supabase/functions/* | High -- server-side auth untested |
-| Airfield matching | airfields.ts:findAirfield | Low -- simple logic but fuzzy matching edge cases |
-
-### 5.3 Coverage Assessment
-
-```
-+---------------------------------------------+
-|  Estimated Test Coverage: ~25%              |
-+---------------------------------------------+
-|  CSV parsing:     ✅ Well covered            |
-|  Calculation:     ✅ Covered                 |
-|  Auth/CRUD/Edge:  ❌ Not tested             |
-|  Components:      ❌ Not tested             |
-|  Offline:         ❌ Not tested             |
-+---------------------------------------------+
-```
+#### C-04: Edge Function user lookup is O(n) with 1000-user hard limit
+- **Category**: Security / Scalability
+- **File**: `supabase/functions/kakao-auth/index.ts:87`, `supabase/functions/naver-auth/index.ts:88`
+- **Issue**: Both Edge Functions call `listUsers({ page: 1, perPage: 1000 })` then linear-scan for email. Breaks silently at >1000 users. Also a performance concern (fetches all user records per login).
+- **Fix**: Replace with `supabase.auth.admin.listUsers({ filter: { email: kakaoEmail } })` or use RPC.
+- **Effort**: 30 min
+- **Carried from**: v1.0 item #1
 
 ---
 
-## 6. Architecture Analysis (Starter Level)
+### Major (10 items - Should Fix)
 
-This project follows a **Starter-level** folder structure:
+#### M-01: PDF export has XSS vulnerability
+- **Category**: Security
+- **File**: `src/lib/pdf-export.ts:10-20`
+- **Issue**: Flight log fields are interpolated directly into HTML template literals without escaping. A CSV containing `<img src=x onerror=alert(1)>` in any text field will execute in the print window.
+- **Fix**: Create `escapeHtml()` utility and apply to all interpolated values.
+- **Effort**: 30 min
+
+#### M-02: CSV export has formula injection vulnerability
+- **Category**: Security
+- **File**: `src/pages/FlightLogList.tsx:143-158`
+- **Issue**: Values starting with `=`, `+`, `-`, `@`, `\t`, `\r` can trigger formula execution in Excel/Google Sheets. Current quoting is insufficient.
+- **Fix**: Prefix dangerous-character values with a tab or single-quote character.
+- **Effort**: 15 min
+
+#### M-03: `handleUpload` missing try/catch on online path
+- **Category**: Error Handling
+- **File**: `src/components/LightAircraftLogUpload.tsx:43-75`
+- **Issue**: `insertFlightLogs()` (line 62) can throw on network errors but the online code path has no try/catch wrapper. An unhandled promise rejection crashes the upload flow silently.
+- **Fix**: Wrap lines 62-68 in try/catch, set error state.
+- **Effort**: 10 min
+
+#### M-04: No root-level Error Boundary
+- **Category**: Error Handling
+- **File**: `src/App.tsx`, `src/main.tsx`
+- **Issue**: `MapErrorBoundary` protects the map, but an error in `LightAircraftLogUpload`, `Login`, or `FlightLogList` (outside the map) shows a blank white screen.
+- **Fix**: Add a root `<ErrorBoundary>` in `App.tsx` or `main.tsx`.
+- **Effort**: 20 min
+
+#### M-05: Array mutation with `.reverse()`
+- **Category**: Code Quality
+- **File**: `src/pages/FlightLogList.tsx:40, 46`
+- **Issue**: `cached.reverse()` mutates the array returned by IndexedDB. Called in two places with same pattern. Violates immutability expectations.
+- **Fix**: Use `[...cached].reverse()` or explicit sort.
+- **Effort**: 5 min
+
+#### M-06: `useEffect` missing dependency
+- **Category**: Code Quality
+- **File**: `src/pages/FlightLogList.tsx:54-56`
+- **Issue**: `loadLogs` referenced in `useEffect` but not in dependency array.
+- **Fix**: Add eslint-disable comment or wrap in `useCallback`.
+- **Effort**: 5 min
+
+#### M-07: `window.confirm()` for delete confirmation
+- **Category**: UX
+- **File**: `src/pages/FlightLogList.tsx:124`
+- **Issue**: Blocking synchronous dialog that cannot be styled, may be suppressed by browsers, and shows English OK/Cancel on Korean-language app.
+- **Fix**: Replace with custom modal component.
+- **Effort**: 1 hr
+
+#### M-08: Supabase client created with potentially undefined env vars
+- **Category**: Code Quality / Reliability
+- **File**: `src/lib/supabase.ts:3-4`
+- **Issue**: `import.meta.env.VITE_SUPABASE_URL` cast to `string` without null check. If env var is missing, `createClient` receives `undefined` and produces cryptic runtime errors.
+- **Fix**: Add fallback or startup validation.
+- **Effort**: 15 min
+
+#### M-09: No rate limiting on Edge Functions
+- **Category**: Security
+- **File**: `supabase/functions/kakao-auth/index.ts`, `supabase/functions/naver-auth/index.ts`
+- **Issue**: No request rate limiting, body size validation, or abuse prevention. Attacker can exhaust Kakao/Naver API quotas.
+- **Fix**: Use Supabase API Gateway rate limits or add in-function throttling.
+- **Effort**: 30 min
+
+#### M-10: N+1 insert pattern for flight logs
+- **Category**: Performance
+- **File**: `src/lib/supabase-flight-log.ts:27-41`
+- **Issue**: Each log inserted individually via `for` loop. 100 CSV rows = 100 sequential HTTP requests. Supabase supports batch insert.
+- **Fix**: Use `.insert(logsArray)` with duplicate handling via `.onConflict()` or post-processing.
+- **Effort**: 1 hr
+
+---
+
+### Minor (11 items - Nice to Have)
+
+| # | Category | File | Issue | Fix |
+|---|----------|------|-------|-----|
+| m-01 | Code Quality | Edge Functions :79/:80 | Unused `user` variable declared but never read | Remove or use for logging |
+| m-02 | Code Quality | TrainingInstitutionSelect.tsx:26 | `as Record<string, any>` cast | Define proper TypeScript type |
+| m-03 | Performance | FlightLogList.tsx:390 | Dynamic Tailwind class `text-${align}` may be stripped by JIT | Use mapping object |
+| m-04 | PWA | index.html | No `<link rel="apple-touch-icon">` | Add link tag |
+| m-05 | Data | airfields.ts | 33 hardcoded airfields; Korea has ~60+ | Load from DB for updates |
+| m-06 | Data Integrity | csv-parser-light.ts:86 | No date format validation on `flight_date` | Add YYYY-MM-DD regex |
+| m-07 | UX | FlightLogList.tsx:177 | Plain text loading state instead of skeleton | Add table skeleton |
+| m-08 | PWA | index.html:5 | Default Vite favicon | Create custom aviation icon |
+| m-09 | Code Quality | csv-parser-light.ts:200-245 | `parseCsvString` duplicates `parseCsvFile` logic | Extract shared function |
+| m-10 | Accessibility | index.html | No `<noscript>` fallback | Add noscript message |
+| m-11 | UX | App.tsx | No persistent offline status indicator | Add banner/icon |
+
+---
+
+## Category Details
+
+### 1. Code Quality (82%)
+
+| Item | Status | Notes |
+|------|:------:|-------|
+| TypeScript strict mode | OK | `strict: true`, `noUnusedLocals`, `noUnusedParameters` |
+| Consistent naming | OK | 100% convention compliance |
+| Import organization | OK | External > internal > types pattern |
+| Test coverage | FAIL | 0% -- no test files exist |
+| DRY compliance | Warning | `parseCsvString` duplicates `parseCsvFile` |
+| Unused variables | Warning | `user` in Edge Functions |
+| Type safety | Warning | `as any` in TrainingInstitutionSelect |
+
+### 2. Security (75%)
+
+| Item | Status | Notes |
+|------|:------:|-------|
+| CSRF (OAuth) | OK | Both Kakao and Naver use `state` + `sessionStorage` |
+| CORS (Edge Functions) | OK | Allowlist: `plane-log-chi.vercel.app` + `localhost:5173` |
+| Env var exposure | OK | Only `VITE_*` (public OAuth IDs) exposed |
+| `.gitignore` | OK | `.env`, `.env.local`, `.env.production` ignored |
+| RLS policies | OK | Full CRUD restricted to `auth.uid()` |
+| XSS in PDF | FAIL | Unsanitized HTML interpolation |
+| CSV injection | FAIL | No formula prefix sanitization |
+| Rate limiting | FAIL | No Edge Function rate limits |
+| User enumeration | FAIL | `listUsers(1000)` pattern |
+
+### 3. Performance (83%)
+
+| Item | Status | Notes |
+|------|:------:|-------|
+| Code splitting | OK | FlightMap lazy-loaded |
+| Memoization | OK | `useMemo` for filter/sort/airfield aggregation |
+| Bundle size | OK | Minimal deps for MVP scope |
+| N+1 inserts | FAIL | Sequential per-row INSERT |
+| Dynamic Tailwind | Warning | May be stripped in production |
+
+### 4. PWA Compliance (65%)
+
+| Item | Status |
+|------|:------:|
+| Manifest (VitePWA) | OK |
+| Service worker (Workbox) | OK |
+| Runtime caching (Supabase API) | OK |
+| Offline IndexedDB | OK |
+| Reconnect sync | OK |
+| PWA icons | FAIL |
+| apple-touch-icon | FAIL |
+| Custom favicon | FAIL |
+| `<meta theme-color>` | OK |
+
+### 5. Accessibility (40%)
+
+| Item | Status |
+|------|:------:|
+| `lang="ko"` | OK |
+| Color contrast | OK |
+| ARIA labels | FAIL |
+| Keyboard navigation | FAIL |
+| `aria-sort` | FAIL |
+| Screen reader live regions | FAIL |
+| `<noscript>` | FAIL |
+| Skip-to-content | FAIL |
+| Focus management | Warning |
+
+### 6. Error Handling (75%)
+
+| Item | Status |
+|------|:------:|
+| Auth error display | OK |
+| Upload error display | OK |
+| Offline fallback | OK |
+| Map error boundary | OK |
+| Root error boundary | FAIL |
+| Upload try/catch | FAIL |
+| Edge Function errors | OK |
+| Silent catch blocks | Warning (`offline-store.ts:89`) |
+
+### 7. Data Integrity (88%)
+
+| Item | Status |
+|------|:------:|
+| CSV header mapping (30+ variants) | OK |
+| Required field validation (3 fields) | OK |
+| Duplicate detection (23505) | OK |
+| BOM handling | OK |
+| Empty row skipping | OK |
+| Training institution data (107 entries) | OK |
+| Date format validation | Warning |
+
+### 8. UX Completeness (82%)
+
+| Item | Status |
+|------|:------:|
+| Login loading state | OK |
+| Upload 5-state machine | OK |
+| CSV preview (5 rows) | OK |
+| Date range filters | OK |
+| Column sorting | OK |
+| PDF export | OK |
+| CSV export (BOM-UTF8) | OK |
+| Empty state messages | OK |
+| Delete confirmation | Warning (uses `confirm()`) |
+| Loading skeleton | Warning (plain text) |
+| Offline indicator | Warning (none) |
+
+---
+
+## Architecture Assessment
+
+### Folder Structure (Starter Level - Appropriate for Phase 1)
 
 ```
 src/
-  components/   -- UI (Presentation)
-  pages/        -- Page components (Presentation)
-  lib/          -- Business logic + Infrastructure (mixed)
-  data/         -- Static data (Domain)
-  types/        -- Type definitions (Domain)
+  components/   4 files  (Login, FlightMap, LightAircraftLogUpload, TrainingInstitutionSelect)
+  data/         2 files  (airfields.ts, training-institutions.json)
+  lib/          7 files  (supabase, auth x3, CSV, offline, PDF)
+  pages/        1 file   (FlightLogList)
+  types/        1 file   (flight-log)
 ```
 
-### 6.1 Layer Assignment
+### Dependency Direction: No violations detected
 
-| File | Assigned Layer | Correct? |
-|------|---------------|:--------:|
-| components/*.tsx | Presentation | ✅ |
-| pages/FlightLogList.tsx | Presentation | ✅ |
-| lib/csv-parser-light.ts | Application (parsing logic) | ✅ |
-| lib/supabase-flight-log.ts | Infrastructure + Application (mixed) | ⚠️ |
-| lib/supabase.ts | Infrastructure | ✅ |
-| lib/offline-store.ts | Infrastructure | ✅ |
-| lib/supabase-auth.ts | Application (auth orchestration) | ✅ |
-| lib/kakao-auth.ts | Infrastructure (external API) | ✅ |
-| lib/naver-auth.ts | Infrastructure (external API) | ✅ |
-| types/flight-log.ts | Domain | ✅ |
-| data/airfields.ts | Domain | ✅ |
-| data/training-institutions.json | Domain (static data) | ✅ |
+All imports flow correctly: pages -> lib/components/types, components -> lib/data/types, lib -> types/other-lib, types -> nothing.
 
-### 6.2 Dependency Issues
+### Convention Compliance: 97%
 
-| Issue | Description |
-|-------|-------------|
-| Mixed concerns in supabase-flight-log.ts | `calculateTotalHours` (pure logic) is in the same file as DB operations. Should be separated. |
-| Components import lib/ directly | Acceptable at Starter level, but `FlightLogList` directly calls `fetchFlightLogs`, `deleteFlightLog`, and `calculateTotalHours`. No service abstraction layer. |
-
-### 6.3 Architecture Score
-
-```
-+---------------------------------------------+
-|  Architecture Compliance: 85%               |
-+---------------------------------------------+
-|  Correct placement:  12/13 modules          |
-|  Mixed concerns:     1 file                 |
-|  For Starter level:  Acceptable             |
-+---------------------------------------------+
-```
+Only deviation: `as any` cast in TrainingInstitutionSelect and mixed concerns in `supabase-flight-log.ts` (`calculateTotalHours` pure logic alongside DB operations).
 
 ---
 
-## 7. Convention Compliance
+## Recommended Actions
 
-### 7.1 Naming Convention
+### Immediate (Before Production Deploy) -- ~3.5 hours
 
-| Category | Convention | Compliance | Violations |
-|----------|-----------|:----------:|------------|
-| Components | PascalCase | 100% | None |
-| Functions | camelCase | 100% | None |
-| Constants | UPPER_SNAKE_CASE | 100% | `DB_NAME`, `HEADER_MAP`, `AIRFIELDS`, etc. |
-| Files (component) | PascalCase.tsx | 100% | None |
-| Files (utility) | kebab-case.ts | 100% | `csv-parser-light.ts`, `supabase-flight-log.ts`, etc. |
-| Folders | kebab-case | 100% | None |
+| # | Item | Effort | Impact |
+|---|------|--------|--------|
+| 1 | C-01: Add PWA icons | 15 min | PWA installability |
+| 2 | M-01: HTML-escape PDF export | 30 min | XSS prevention |
+| 3 | M-02: Sanitize CSV export | 15 min | CSV injection prevention |
+| 4 | M-03: Add try/catch to upload | 10 min | Error handling |
+| 5 | C-04: Fix Edge Function user lookup | 30 min | Scalability + security |
+| 6 | M-04: Add root ErrorBoundary | 20 min | Crash resilience |
+| 7 | M-05: Fix array mutation | 5 min | Code correctness |
+| 8 | M-08: Env var validation | 15 min | Startup reliability |
 
-### 7.2 Import Order
+### Short-Term (Next Sprint) -- ~6 hours
 
-Checked all source files:
+| # | Item | Effort | Impact |
+|---|------|--------|--------|
+| 9 | C-02: Add unit tests | 2 hr | Test coverage 0% -> 60%+ |
+| 10 | C-03: Accessibility fixes | 2 hr | WCAG compliance |
+| 11 | M-07: Custom delete modal | 1 hr | UX polish |
+| 12 | M-10: Batch INSERT | 1 hr | Upload performance |
+| 13 | m-03: Fix dynamic Tailwind | 10 min | Production CSS |
+| 14 | m-04: Add apple-touch-icon | 5 min | iOS PWA |
 
-- [x] External libraries first (`react`, `papaparse`, `leaflet`, `@supabase/supabase-js`)
-- [x] Internal imports second (`../lib/`, `../data/`, `../types/`)
-- [x] Type imports use `import type` syntax consistently
-- [x] Styles last (only `index.css` and `leaflet/dist/leaflet.css`)
+### Medium-Term (Phase 2 Prep)
 
-No violations found.
-
-### 7.3 Environment Variable Convention
-
-| Variable | Convention Compliance | Scope | Status |
-|----------|----------------------|-------|:------:|
-| VITE_SUPABASE_URL | ✅ `VITE_` prefix for client | Client | ✅ |
-| VITE_SUPABASE_ANON_KEY | ✅ `VITE_` prefix for client | Client | ✅ |
-| VITE_KAKAO_REST_API_KEY | ⚠️ API key exposed to client | Client | ⚠️ |
-| VITE_NAVER_CLIENT_ID | ⚠️ Client ID exposed to client | Client | ⚠️ |
-| KAKAO_REST_API_KEY (Edge) | ✅ Server-only | Server | ✅ |
-| KAKAO_CLIENT_SECRET (Edge) | ✅ Server-only | Server | ✅ |
-| NAVER_CLIENT_ID (Edge) | ✅ Server-only | Server | ✅ |
-| NAVER_CLIENT_SECRET (Edge) | ✅ Server-only | Server | ✅ |
-
-Note: `VITE_KAKAO_REST_API_KEY` and `VITE_NAVER_CLIENT_ID` are OAuth client IDs which are intentionally public (required for OAuth redirect flow). This is standard OAuth practice but should be documented.
-
-### 7.4 Convention Score
-
-```
-+---------------------------------------------+
-|  Convention Compliance: 95%                 |
-+---------------------------------------------+
-|  Naming:          100%                       |
-|  Folder Structure: 95% (no hooks/ or        |
-|                    services/ separation)     |
-|  Import Order:     100%                      |
-|  Env Variables:    90%                       |
-+---------------------------------------------+
-```
+| # | Item | Effort |
+|---|------|--------|
+| 15 | m-09: DRY refactor CSV parser | 30 min |
+| 16 | m-06: Date format validation | 30 min |
+| 17 | m-11: Offline status indicator | 1 hr |
+| 18 | m-07: Loading skeletons | 1 hr |
+| 19 | Upgrade to Dynamic folder structure | 2 hr |
+| 20 | Separate `calculateTotalHours` to pure utility | 15 min |
 
 ---
 
-## 8. Overall Scores
+## Comparison with v1.0 Analysis
 
-| Category | Score | Status |
-|----------|:-----:|:------:|
-| Design Match (Plan vs Impl) | 100% | ✅ |
-| Architecture Compliance | 85% | ✅ |
-| Convention Compliance | 95% | ✅ |
-| Code Quality | 78% | ⚠️ |
-| Security | 72% | ⚠️ |
-| Test Coverage | 25% | ❌ |
-| **Overall** | **76%** | **⚠️** |
+| v1.0 Issue | Status in v2.0 |
+|------------|:--------------:|
+| `listUsers(1000)` in Edge Functions | Still open (C-04) |
+| Missing Kakao CSRF state | Fixed |
+| CORS unrestricted | Fixed (allowlist in place) |
+| TrainingInstitutionSelect not integrated | Fixed |
+| Pending upload no auto-sync | Fixed (`registerReconnectSync`) |
+| Duplicate CSV parser logic | Still open (m-09) |
 
----
+### New Issues Found in v2.0
 
-## 9. Recommended Actions
-
-### 9.1 Immediate (Critical)
-
-| # | Item | Location | Impact |
-|---|------|----------|--------|
-| 1 | Replace `listUsers({ perPage: 1000 })` with targeted user lookup in Edge Functions | supabase/functions/kakao-auth/index.ts:76, naver-auth/index.ts:78 | Security + performance |
-| 2 | Add CSRF state parameter to Kakao OAuth flow (Naver already has it) | src/lib/kakao-auth.ts | Security |
-| 3 | Restrict CORS `Access-Control-Allow-Origin` to production domain | supabase/functions/*/index.ts | Security |
-
-### 9.2 Short-term (1 week)
-
-| # | Item | Location | Impact |
-|---|------|----------|--------|
-| 4 | Add integration tests for Supabase CRUD operations | tests/ | Test coverage +20% |
-| 5 | Batch insert instead of one-by-one loop | supabase-flight-log.ts:27-41 | Performance for large CSVs |
-| 6 | Implement pending upload auto-sync on reconnect | offline-store.ts | Offline UX completion |
-| 7 | Integrate TrainingInstitutionSelect into upload flow | LightAircraftLogUpload.tsx | Feature completeness |
-| 8 | Deduplicate parseCsvFile/parseCsvString shared logic | csv-parser-light.ts | Maintainability |
-
-### 9.3 Long-term (Backlog)
-
-| # | Item | Location | Notes |
-|---|------|----------|-------|
-| 9 | Remove duplicate migration files (keep only supabase/migrations/) | migrations/ | Consistency |
-| 10 | Add component tests with @testing-library/react | tests/ | Coverage |
-| 11 | Add env var validation at startup (zod schema) | src/lib/env.ts (new) | Reliability |
-| 12 | Separate `calculateTotalHours` into a pure utility file | src/lib/flight-stats.ts (new) | Clean architecture |
-| 13 | Add PWA icons (pwa-192x192.png, pwa-512x512.png referenced in manifest but not verified) | public/ | PWA compliance |
-
----
-
-## 10. Plan Document Updates Needed
-
-The plan document should be updated to reflect these implemented-but-unplanned features:
-
-- [ ] Flight log deletion functionality
-- [ ] Leaflet map with 33 Korean airfield markers and fuzzy name matching
-- [ ] Naver OAuth Edge Function (separate from Kakao)
-- [ ] Vercel deployment configuration (vercel.json)
-- [ ] Dev bypass mode for local development without Supabase
-- [ ] React lazy loading for map component
-- [ ] Error boundary for map rendering failures
-
----
-
-## 11. Summary
-
-**All 9 planned Phase 1 MVP features are implemented.** The plan-to-implementation match rate is 100%. The project also includes 8 additional features beyond the original plan scope.
-
-The main areas needing attention are:
-1. **Security**: Edge Function user lookup pattern and missing Kakao CSRF protection
-2. **Test coverage**: Only CSV parsing is tested; auth, CRUD, offline, and components are untested
-3. **Pending upload sync**: Offline uploads are saved but never automatically synced when reconnecting
-
-For Phase 2 readiness, items 1-3 in the immediate actions should be resolved first.
+| # | New Since v1.0 | Category |
+|---|----------------|----------|
+| M-01 | XSS in new PDF export feature | Security |
+| M-02 | CSV injection in new CSV export feature | Security |
+| C-02 | Test file removed since v1.0 | Code Quality |
+| C-03 | Accessibility (not measured in v1.0) | Accessibility |
+| C-01 | PWA icons (not measured in v1.0) | PWA |
+| M-10 | N+1 insert (promoted from v1.0 note to Major) | Performance |
 
 ---
 
@@ -359,4 +400,5 @@ For Phase 2 readiness, items 1-3 in the immediate actions should be resolved fir
 
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
-| 1.0 | 2026-03-14 | Initial gap analysis | Claude (gap-detector) |
+| 1.0 | 2026-03-14 | Initial gap analysis (Plan vs Implementation) | gap-detector |
+| 2.0 | 2026-03-15 | Comprehensive 8-category analysis; 25 gap items; added security, a11y, PWA, performance categories | gap-detector |

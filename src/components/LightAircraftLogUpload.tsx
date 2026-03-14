@@ -59,19 +59,24 @@ export default function LightAircraftLogUpload({ onUploadComplete }: UploadProps
       return
     }
 
-    const result = await insertFlightLogs(logsWithInstitution)
+    try {
+      const result = await insertFlightLogs(logsWithInstitution)
 
-    if (result.errors.length > 0) {
+      if (result.errors.length > 0) {
+        setStatus('error')
+        setMessage(result.errors.join(', '))
+        return
+      }
+
+      setStatus('done')
+      setMessage(`${result.inserted}건 저장 완료 (중복 건너뜀: ${result.duplicates}건)`)
+      setPreview([])
+      if (fileRef.current) fileRef.current.value = ''
+      onUploadComplete()
+    } catch (err) {
       setStatus('error')
-      setMessage(result.errors.join(', '))
-      return
+      setMessage(err instanceof Error ? err.message : '업로드 중 오류가 발생했습니다')
     }
-
-    setStatus('done')
-    setMessage(`${result.inserted}건 저장 완료 (중복 건너뜀: ${result.duplicates}건)`)
-    setPreview([])
-    if (fileRef.current) fileRef.current.value = ''
-    onUploadComplete()
   }
 
   function handleReset() {
