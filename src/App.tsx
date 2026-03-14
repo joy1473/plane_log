@@ -55,12 +55,12 @@ function App() {
   const [authMessage, setAuthMessage] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
   const [showInstallBanner, setShowInstallBanner] = useState(false)
+  const [showIosGuide, setShowIosGuide] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
 
   useEffect(() => {
     async function initAuth() {
       try {
-        // 1) OAuth 리다이렉트 콜백 처리 (URL에 ?code= 가 있을 때)
         const callbackSession = await handleAuthCallback()
         if (callbackSession) {
           setSession(callbackSession)
@@ -69,8 +69,6 @@ function App() {
           setLoading(false)
           return
         }
-
-        // 2) 기존 세션 복원
         const existingSession = await getSession()
         setSession(existingSession)
       } catch {
@@ -82,26 +80,34 @@ function App() {
 
     initAuth()
 
+    // 3) 실시간 인증 상태 변경 감지
+    const { data: { subscription } } = onAuthStateChange((s) => {
+      setSession(s)
+      setLoading(false)
+    })
+
     // PWA 설치 가능 여부 확인
     const standalone = window.matchMedia('(display-mode: standalone)').matches
       || ('standalone' in navigator && (navigator as unknown as { standalone: boolean }).standalone)
     setIsStandalone(!!standalone)
 
     if (!standalone) {
-      // beforeinstallprompt가 이미 발생했을 수 있음
-      if (deferredInstallPrompt) {
-        setShowInstallBanner(true)
+      const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !('MSStream' in window)
+      if (isIos) {
+        // iOS: beforeinstallprompt 미지원 → 수동 안내
+        const dismissed = sessionStorage.getItem('ios_install_dismissed')
+        if (!dismissed) setShowIosGuide(true)
+      } else {
+        // Android/Chrome/Edge: beforeinstallprompt 이벤트
+        if (deferredInstallPrompt) setShowInstallBanner(true)
+        const handler = () => setShowInstallBanner(true)
+        window.addEventListener('beforeinstallprompt', handler)
+        return () => {
+          window.removeEventListener('beforeinstallprompt', handler)
+          subscription.unsubscribe()
+        }
       }
-      const handler = () => setShowInstallBanner(true)
-      window.addEventListener('beforeinstallprompt', handler)
-      return () => window.removeEventListener('beforeinstallprompt', handler)
     }
-
-    // 3) 실시간 인증 상태 변경 감지
-    const { data: { subscription } } = onAuthStateChange((s) => {
-      setSession(s)
-      setLoading(false)
-    })
 
     return () => subscription.unsubscribe()
   }, [])
@@ -196,6 +202,32 @@ function App() {
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {showIosGuide && !isStandalone && (
+        <div className="bg-blue-50 border-b border-blue-200 text-blue-800 text-sm py-3 px-4">
+          <div className="flex items-start justify-between gap-2 max-w-4xl mx-auto">
+            <div className="flex-1">
+              <p className="font-medium mb-1">홈 화면에 추가하여 앱처럼 사용하세요!</p>
+              <p className="text-xs text-blue-600">
+                Safari 하단의{' '}
+                <svg className="inline -mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <polyline points="16,6 12,2 8,6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+                {' '}공유 버튼 → <strong>홈 화면에 추가</strong>를 눌러주세요.
+              </p>
+            </div>
+            <button
+              onClick={() => { setShowIosGuide(false); sessionStorage.setItem('ios_install_dismissed', '1') }}
+              className="text-blue-400 hover:text-blue-600 text-xs mt-1 shrink-0"
+              aria-label="닫기"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
