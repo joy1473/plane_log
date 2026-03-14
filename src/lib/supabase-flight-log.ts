@@ -20,22 +20,27 @@ export async function insertFlightLogs(logs: FlightLog[]): Promise<InsertResult>
   const userId = user.data.user.id
   const logsWithUser = logs.map((log) => ({ ...log, user_id: userId }))
 
-  const { data, error } = await supabase
-    .from('flight_logs')
-    .upsert(logsWithUser, {
-      onConflict: 'user_id,flight_date,departure_time',
-      ignoreDuplicates: true,
-    })
-    .select('id')
+  let inserted = 0
+  let duplicates = 0
+  const errors: string[] = []
 
-  if (error) {
-    return { inserted: 0, duplicates: 0, errors: [`DB 저장 오류: ${error.message}`] }
+  for (const log of logsWithUser) {
+    const { error } = await supabase
+      .from('flight_logs')
+      .insert(log)
+
+    if (error) {
+      if (error.code === '23505') {
+        duplicates++
+      } else {
+        errors.push(`${log.flight_date}: ${error.message}`)
+      }
+    } else {
+      inserted++
+    }
   }
 
-  const inserted = data?.length ?? 0
-  const duplicates = logs.length - inserted
-
-  return { inserted, duplicates, errors: [] }
+  return { inserted, duplicates, errors }
 }
 
 export async function fetchFlightLogs(): Promise<FlightLog[]> {
