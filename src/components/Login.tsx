@@ -40,6 +40,7 @@ export default function Login({ onDevBypass }: LoginProps) {
           <button
             onClick={() => handleLogin('kakao')}
             disabled={loading !== null}
+            aria-label="카카오 계정으로 로그인"
             className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium text-sm transition-colors bg-[#FEE500] text-[#191919] hover:bg-[#F5DC00] disabled:opacity-50"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -52,6 +53,7 @@ export default function Login({ onDevBypass }: LoginProps) {
           <button
             onClick={() => handleLogin('naver')}
             disabled={loading !== null}
+            aria-label="네이버 계정으로 로그인"
             className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium text-sm transition-colors bg-[#03C75A] text-white hover:bg-[#02B550] disabled:opacity-50"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">

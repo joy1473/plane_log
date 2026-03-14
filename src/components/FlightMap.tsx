@@ -81,7 +81,7 @@ export default function FlightMap({ logs }: FlightMapProps) {
     : [36.5, 127.8] // 한국 중심
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="bg-white rounded-lg shadow overflow-hidden" aria-label="비행 이착륙장 지도">
       <h2 className="text-lg font-semibold text-gray-800 px-4 pt-4 pb-2">비행 이착륙장 지도</h2>
       <MapContainer
         center={center}

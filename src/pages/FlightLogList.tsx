@@ -356,6 +356,7 @@ export default function FlightLogList() {
                         disabled={deleting === log.id}
                         className="text-red-400 hover:text-red-600 disabled:opacity-30 text-xs"
                         title="삭제"
+                        aria-label="삭제"
                       >
                         {deleting === log.id ? '...' : '✕'}
                       </button>
@@ -394,10 +395,15 @@ function SortTh({ label, sortKey: key, align, current, dir, onSort }: {
 }) {
   const alignClass = { left: 'text-left', right: 'text-right', center: 'text-center' } as const
   const active = current === key
+  const ariaSortValue = active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'
   return (
     <th
       className={`px-3 py-2 ${alignClass[align]} cursor-pointer select-none hover:bg-gray-100 transition-colors`}
       onClick={() => onSort(key)}
+      role="button"
+      tabIndex={0}
+      aria-sort={ariaSortValue}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSort(key) } }}
     >
       <span className="inline-flex items-center gap-1">
         {label}

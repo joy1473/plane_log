@@ -92,7 +92,11 @@ export default function LightAircraftLogUpload({ onUploadComplete }: UploadProps
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-lg font-semibold mb-4">CSV 비행 기록 업로드</h2>
 
+      <label htmlFor="csv-file-input" className="sr-only">
+        CSV 비행 기록 파일 선택
+      </label>
       <input
+        id="csv-file-input"
         ref={fileRef}
         type="file"
         accept=".csv,.CSV"

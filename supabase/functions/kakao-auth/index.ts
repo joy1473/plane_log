@@ -75,8 +75,7 @@ Deno.serve(async (req) => {
     const kakaoEmail = `kakao_${kakaoId}@kakao.local`
     const userMeta = { kakao_id: kakaoId, full_name: nickname, avatar_url: avatarUrl, provider: 'kakao' }
 
-    // 사용자 생성 시도 (이미 있으면 에러 → 업데이트)
-    let user
+    // 사용자 생성 시도 (이미 있으면 에러 → 페이지네이션 조회 후 업데이트)
     const { data: createData, error: createError } = await supabase.auth.admin.createUser({
       email: kakaoEmail,
       email_confirm: true,
@@ -84,15 +83,22 @@ Deno.serve(async (req) => {
     })
 
     if (createError && createError.message.includes('already been registered')) {
-      const { data: { users } } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
-      user = users?.find((u: { email?: string }) => u.email === kakaoEmail)
-      if (user) {
-        await supabase.auth.admin.updateUserById(user.id, { user_metadata: userMeta })
+      let foundUser: { id: string; email?: string } | undefined
+      let page = 1
+      while (!foundUser) {
+        const { data: { users } } = await supabase.auth.admin.listUsers({ page, perPage: 100 })
+        if (!users || users.length === 0) break
+        foundUser = users.find((u: { email?: string }) => u.email === kakaoEmail)
+        if (users.length < 100) break
+        page++
+      }
+      if (foundUser) {
+        await supabase.auth.admin.updateUserById(foundUser.id, { user_metadata: userMeta })
       }
     } else if (createError) {
       throw createError
     } else {
-      user = createData.user
+      void createData.user
     }
 
     // 4) 세션 생성 (magic link 토큰 발급 → OTP로 변환)

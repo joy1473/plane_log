@@ -109,6 +109,12 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-800 focus:text-white focus:rounded"
+      >
+        본문으로 바로가기
+      </a>
       <header className="bg-blue-800 text-white py-4 px-6 shadow flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">KoreanLightAircraftEFB</h1>
@@ -136,7 +142,7 @@ function App() {
         </div>
       )}
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <main id="main-content" className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         <LightAircraftLogUpload onUploadComplete={() => setRefreshKey((k) => k + 1)} />
         <FlightLogList key={refreshKey} />
       </main>
