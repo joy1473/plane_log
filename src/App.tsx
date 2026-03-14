@@ -1,0 +1,105 @@
+import { useState, useEffect } from 'react'
+import { onAuthStateChange, signOut, getSession, handleAuthCallback, getDisplayName, getAvatarUrl } from './lib/supabase-auth'
+import Login from './components/Login'
+import LightAircraftLogUpload from './components/LightAircraftLogUpload'
+import FlightLogList from './pages/FlightLogList'
+import type { Session } from '@supabase/supabase-js'
+
+function App() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [devBypass, setDevBypass] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [authMessage, setAuthMessage] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    async function initAuth() {
+      try {
+        // 1) OAuth 리다이렉트 콜백 처리 (URL에 ?code= 가 있을 때)
+        const callbackSession = await handleAuthCallback()
+        if (callbackSession) {
+          setSession(callbackSession)
+          setAuthMessage(`${getDisplayName(callbackSession.user)}님 환영합니다!`)
+          setTimeout(() => setAuthMessage(''), 3000)
+          setLoading(false)
+          return
+        }
+
+        // 2) 기존 세션 복원
+        const existingSession = await getSession()
+        setSession(existingSession)
+      } catch {
+        // Supabase 미연결 시 무시
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    initAuth()
+
+    // 3) 실시간 인증 상태 변경 감지
+    const { data: { subscription } } = onAuthStateChange((s) => {
+      setSession(s)
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  if (loading) {
+    const isCallback = window.location.search.includes('code=') || window.location.pathname.includes('/auth/kakao')
+    return (
+      <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-500 text-sm">{isCallback ? '카카오 로그인 처리 중...' : '로딩 중...'}</p>
+      </div>
+    )
+  }
+
+  const isDev = import.meta.env.DEV && import.meta.env.VITE_SUPABASE_URL?.includes('placeholder')
+
+  if (!session && !devBypass) {
+    return <Login onDevBypass={isDev ? () => setDevBypass(true) : undefined} />
+  }
+
+  const displayName = session ? getDisplayName(session.user) : '개발 모드'
+  const avatarUrl = session ? getAvatarUrl(session.user) : null
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-blue-800 text-white py-4 px-6 shadow flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold">KoreanLightAircraftEFB</h1>
+          <p className="text-blue-200 text-sm">경량항공기 비행 기록 관리</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {avatarUrl && (
+            <img src={avatarUrl} alt="" className="w-8 h-8 rounded-full border-2 border-blue-400" />
+          )}
+          <span className="text-blue-200 text-sm">{displayName}</span>
+          {session && (
+            <button
+              onClick={() => signOut()}
+              className="text-sm bg-blue-700 hover:bg-blue-600 px-3 py-1 rounded"
+            >
+              로그아웃
+            </button>
+          )}
+        </div>
+      </header>
+
+      {authMessage && (
+        <div className="bg-green-50 border-b border-green-200 text-green-700 text-sm text-center py-2">
+          {authMessage}
+        </div>
+      )}
+
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <LightAircraftLogUpload onUploadComplete={() => setRefreshKey((k) => k + 1)} />
+        <FlightLogList key={refreshKey} />
+      </main>
+    </div>
+  )
+}
+
+export default App
