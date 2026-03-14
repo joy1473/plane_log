@@ -35,12 +35,27 @@ class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 // 앱 시작 시 재연결 자동 동기화 리스너 등록
 registerReconnectSync()
 
+// PWA 설치 프롬프트 이벤트 저장
+let deferredInstallPrompt: BeforeInstallPromptEvent | null = null
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  deferredInstallPrompt = e as BeforeInstallPromptEvent
+})
+
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [devBypass, setDevBypass] = useState(false)
   const [loading, setLoading] = useState(true)
   const [authMessage, setAuthMessage] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
+  const [showInstallBanner, setShowInstallBanner] = useState(false)
+  const [isStandalone, setIsStandalone] = useState(false)
 
   useEffect(() => {
     async function initAuth() {
@@ -66,6 +81,21 @@ function App() {
     }
 
     initAuth()
+
+    // PWA 설치 가능 여부 확인
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+      || ('standalone' in navigator && (navigator as unknown as { standalone: boolean }).standalone)
+    setIsStandalone(!!standalone)
+
+    if (!standalone) {
+      // beforeinstallprompt가 이미 발생했을 수 있음
+      if (deferredInstallPrompt) {
+        setShowInstallBanner(true)
+      }
+      const handler = () => setShowInstallBanner(true)
+      window.addEventListener('beforeinstallprompt', handler)
+      return () => window.removeEventListener('beforeinstallprompt', handler)
+    }
 
     // 3) 실시간 인증 상태 변경 감지
     const { data: { subscription } } = onAuthStateChange((s) => {
@@ -104,6 +134,17 @@ function App() {
     )
   }
 
+  async function handleInstall() {
+    if (!deferredInstallPrompt) return
+    await deferredInstallPrompt.prompt()
+    const { outcome } = await deferredInstallPrompt.userChoice
+    if (outcome === 'accepted') {
+      setShowInstallBanner(false)
+      setIsStandalone(true)
+    }
+    deferredInstallPrompt = null
+  }
+
   const displayName = session ? getDisplayName(session.user) : '개발 모드'
   const avatarUrl = session ? getAvatarUrl(session.user) : null
 
@@ -135,6 +176,28 @@ function App() {
           )}
         </div>
       </header>
+
+      {showInstallBanner && !isStandalone && (
+        <div className="bg-blue-50 border-b border-blue-200 text-blue-800 text-sm text-center py-2 px-4 flex items-center justify-center gap-3">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+          <span>홈 화면에 추가하여 앱처럼 사용하세요!</span>
+          <button
+            onClick={handleInstall}
+            className="px-3 py-1 bg-blue-700 text-white text-xs rounded hover:bg-blue-600"
+          >
+            설치
+          </button>
+          <button
+            onClick={() => setShowInstallBanner(false)}
+            className="text-blue-400 hover:text-blue-600 text-xs ml-1"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {authMessage && (
         <div className="bg-green-50 border-b border-green-200 text-green-700 text-sm text-center py-2">
