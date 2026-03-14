@@ -9,11 +9,15 @@ const REDIRECT_URI = `${window.location.origin}/auth/kakao/callback`
  * 카카오 로그인 페이지로 리다이렉트 (이메일 없이 프로필만 요청)
  */
 export function redirectToKakaoLogin(): void {
+  const state = crypto.randomUUID()
+  sessionStorage.setItem('kakao_oauth_state', state)
+
   const params = new URLSearchParams({
     client_id: KAKAO_REST_API_KEY,
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
     scope: 'profile_nickname profile_image',
+    state,
   })
   window.location.href = `https://kauth.kakao.com/oauth/authorize?${params}`
 }
@@ -28,7 +32,16 @@ export async function handleKakaoCallback(): Promise<Session | null> {
   if (!url.pathname.includes('/auth/kakao/callback')) return null
 
   const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
   if (!code) return null
+
+  // CSRF 검증
+  const savedState = sessionStorage.getItem('kakao_oauth_state')
+  if (!state || state !== savedState) {
+    window.history.replaceState({}, '', '/?auth_error=' + encodeURIComponent('CSRF 검증 실패'))
+    return null
+  }
+  sessionStorage.removeItem('kakao_oauth_state')
 
   try {
     // Edge Function 호출: 카카오 code → Supabase magic link 토큰

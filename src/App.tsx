@@ -3,7 +3,11 @@ import { onAuthStateChange, signOut, getSession, handleAuthCallback, getDisplayN
 import Login from './components/Login'
 import LightAircraftLogUpload from './components/LightAircraftLogUpload'
 import FlightLogList from './pages/FlightLogList'
+import { registerReconnectSync } from './lib/offline-store'
 import type { Session } from '@supabase/supabase-js'
+
+// 앱 시작 시 재연결 자동 동기화 리스너 등록
+registerReconnectSync()
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)

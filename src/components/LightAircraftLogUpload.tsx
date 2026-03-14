@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { parseCsvFile } from '../lib/csv-parser-light'
 import { insertFlightLogs } from '../lib/supabase-flight-log'
 import { savePendingUpload } from '../lib/offline-store'
+import TrainingInstitutionSelect from './TrainingInstitutionSelect'
 import type { FlightLog } from '../types/flight-log'
 
 interface UploadProps {
@@ -13,6 +14,7 @@ export default function LightAircraftLogUpload({ onUploadComplete }: UploadProps
   const [message, setMessage] = useState('')
   const [preview, setPreview] = useState<FlightLog[]>([])
   const [parseErrors, setParseErrors] = useState<string[]>([])
+  const [trainingInstitution, setTrainingInstitution] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -43,8 +45,13 @@ export default function LightAircraftLogUpload({ onUploadComplete }: UploadProps
 
     setStatus('uploading')
 
+    // 선택된 교육기관을 모든 로그에 적용
+    const logsWithInstitution = trainingInstitution
+      ? preview.map((log) => ({ ...log, training_institution: trainingInstitution }))
+      : preview
+
     if (!navigator.onLine) {
-      await savePendingUpload(preview)
+      await savePendingUpload(logsWithInstitution)
       setStatus('done')
       setMessage(`오프라인 상태: ${preview.length}건 로컬 저장 완료 (온라인 복귀 시 자동 업로드)`)
       setPreview([])
@@ -52,7 +59,7 @@ export default function LightAircraftLogUpload({ onUploadComplete }: UploadProps
       return
     }
 
-    const result = await insertFlightLogs(preview)
+    const result = await insertFlightLogs(logsWithInstitution)
 
     if (result.errors.length > 0) {
       setStatus('error')
@@ -72,6 +79,7 @@ export default function LightAircraftLogUpload({ onUploadComplete }: UploadProps
     setMessage('')
     setPreview([])
     setParseErrors([])
+    setTrainingInstitution('')
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -133,6 +141,16 @@ export default function LightAircraftLogUpload({ onUploadComplete }: UploadProps
               </tbody>
             </table>
           </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              교육기관 선택 <span className="text-gray-400 font-normal">(선택 사항)</span>
+            </label>
+            <TrainingInstitutionSelect
+              value={trainingInstitution}
+              onChange={setTrainingInstitution}
+            />
+          </div>
+
           <div className="mt-3 flex gap-2">
             <button
               onClick={handleUpload}

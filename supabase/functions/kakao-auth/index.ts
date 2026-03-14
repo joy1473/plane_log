@@ -5,12 +5,23 @@ const KAKAO_CLIENT_SECRET = Deno.env.get('KAKAO_CLIENT_SECRET')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGINS = [
+  'https://plane-log-chi.vercel.app',
+  'http://localhost:5173',
+]
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? ''
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -73,8 +84,9 @@ Deno.serve(async (req) => {
     })
 
     if (createError && createError.message.includes('already been registered')) {
-      const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 1000 })
-      user = users?.find((u) => u.email === kakaoEmail)
+      const { data: { user: existingUser }, error: getUserError } = await supabase.auth.admin.getUserByEmail(kakaoEmail)
+      if (getUserError) throw getUserError
+      user = existingUser
       if (user) {
         await supabase.auth.admin.updateUserById(user.id, { user_metadata: userMeta })
       }
