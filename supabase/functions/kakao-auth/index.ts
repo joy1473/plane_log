@@ -84,9 +84,8 @@ Deno.serve(async (req) => {
     })
 
     if (createError && createError.message.includes('already been registered')) {
-      const { data: { user: existingUser }, error: getUserError } = await supabase.auth.admin.getUserByEmail(kakaoEmail)
-      if (getUserError) throw getUserError
-      user = existingUser
+      const { data: { users } } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      user = users?.find((u: { email?: string }) => u.email === kakaoEmail)
       if (user) {
         await supabase.auth.admin.updateUserById(user.id, { user_metadata: userMeta })
       }

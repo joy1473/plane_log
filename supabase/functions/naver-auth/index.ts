@@ -85,10 +85,8 @@ Deno.serve(async (req) => {
     })
 
     if (createError && createError.message.includes('already been registered')) {
-      // 기존 사용자 찾아서 업데이트
-      const { data: { user: existingUser }, error: getUserError } = await supabase.auth.admin.getUserByEmail(naverEmail)
-      if (getUserError) throw getUserError
-      user = existingUser
+      const { data: { users } } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      user = users?.find((u: { email?: string }) => u.email === naverEmail)
       if (user) {
         await supabase.auth.admin.updateUserById(user.id, { user_metadata: userMeta })
       }
