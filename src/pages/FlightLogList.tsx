@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { fetchFlightLogs, calculateTotalHours } from '../lib/supabase-flight-log'
 import { getCachedFlightLogs, cacheFlightLogs } from '../lib/offline-store'
 import type { FlightLog } from '../types/flight-log'
+
+const FlightMap = lazy(() => import('../components/FlightMap'))
 
 export default function FlightLogList() {
   const [logs, setLogs] = useState<(FlightLog & { id: string })[]>([])
@@ -55,6 +57,13 @@ export default function FlightLogList() {
       </div>
 
       {error && <p className="text-sm text-orange-600">{error}</p>}
+
+      {/* 이착륙장 지도 */}
+      {logs.length > 0 && (
+        <Suspense fallback={<div className="bg-white rounded-lg shadow p-6 text-center text-gray-400">지도 로딩 중...</div>}>
+          <FlightMap logs={logs} />
+        </Suspense>
+      )}
 
       {/* 비행 기록 리스트 */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
