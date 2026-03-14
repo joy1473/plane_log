@@ -277,15 +277,6 @@ export default function FlightLogList() {
 
       {error && <p className="text-sm text-orange-600">{error}</p>}
 
-      {/* 이착륙장 지도 */}
-      {logs.length > 0 && (
-        <MapErrorBoundary>
-          <Suspense fallback={<div className="bg-white rounded-lg shadow p-6 text-center text-gray-400">지도 로딩 중...</div>}>
-            <FlightMap logs={logs} />
-          </Suspense>
-        </MapErrorBoundary>
-      )}
-
       {/* 비행 기록 리스트 */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b">
@@ -368,6 +359,15 @@ export default function FlightLogList() {
           </div>
         )}
       </div>
+
+      {/* 이착륙장 지도 */}
+      {logs.length > 0 && (
+        <MapErrorBoundary>
+          <Suspense fallback={<div className="bg-white rounded-lg shadow p-6 text-center text-gray-400">지도 로딩 중...</div>}>
+            <FlightMap logs={logs} />
+          </Suspense>
+        </MapErrorBoundary>
+      )}
     </div>
   )
 }
