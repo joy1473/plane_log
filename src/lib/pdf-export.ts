@@ -44,6 +44,6 @@ export function exportFlightLogsPdf(
     headStyles: { fillColor: [30, 64, 175] },
   })
 
-  const fileName = `flight-log-${dateLabel.replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`
+  const fileName = `flight-log-${dateLabel}.pdf`
   doc.save(fileName)
 }

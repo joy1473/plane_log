@@ -160,7 +160,7 @@ export default function FlightLogList() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `flight-log-${dateLabel.replace(/[^a-zA-Z0-9-]/g, '_')}.csv`
+    a.download = `flight-log-${dateLabel}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
