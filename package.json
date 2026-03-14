@@ -12,11 +12,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/noto-sans-kr": "^5.2.9",
     "@supabase/supabase-js": "^2.99.1",
     "@tailwindcss/vite": "^4.2.1",
     "idb": "^8.0.3",
-    "jspdf": "^4.2.0",
-    "jspdf-autotable": "^5.0.7",
     "leaflet": "^1.9.4",
     "papaparse": "^5.5.3",
     "react": "^19.2.0",
