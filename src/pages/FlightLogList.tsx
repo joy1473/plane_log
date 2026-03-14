@@ -134,8 +134,35 @@ export default function FlightLogList() {
   }
 
   function handleExportPdf() {
-    if (logs.length === 0) return
-    exportFlightLogsPdf(logs, dateLabel)
+    if (sortedLogs.length === 0) return
+    exportFlightLogsPdf(sortedLogs, dateLabel)
+  }
+
+  function handleExportCsv() {
+    if (sortedLogs.length === 0) return
+    const headers = ['날짜', '출발시간', '도착시간', '비행시간(분)', '이착륙장', '교관', '훈련목적', '착륙횟수', '비행고도', '교육기관', '비고']
+    const rows = sortedLogs.map((l) => [
+      l.flight_date,
+      l.departure_time ?? '',
+      l.arrival_time ?? '',
+      String(l.flight_duration_min),
+      l.airfield,
+      l.instructor_name ?? '',
+      l.training_purpose ?? '',
+      String(l.landing_count ?? 1),
+      l.flight_altitude_ft ? String(l.flight_altitude_ft) : '',
+      l.training_institution ?? '',
+      l.remarks ?? '',
+    ])
+    const bom = '\uFEFF'
+    const csv = bom + [headers, ...rows].map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `flight-log-${dateLabel.replace(/[^a-zA-Z0-9-]/g, '_')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const stats = calculateTotalHours(logs)
@@ -258,18 +285,32 @@ export default function FlightLogList() {
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500">{logs.length}건</span>
             {logs.length > 0 && (
-              <button
-                onClick={handleExportPdf}
-                className="flex items-center gap-1 px-3 py-1 text-xs bg-blue-700 text-white rounded hover:bg-blue-600 transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14,2 14,8 20,8" />
-                  <line x1="12" y1="18" x2="12" y2="12" />
-                  <polyline points="9,15 12,18 15,15" />
-                </svg>
-                PDF 저장
-              </button>
+              <>
+                <button
+                  onClick={handleExportPdf}
+                  className="flex items-center gap-1 px-3 py-1 text-xs bg-blue-700 text-white rounded hover:bg-blue-600 transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14,2 14,8 20,8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <polyline points="9,15 12,18 15,15" />
+                  </svg>
+                  PDF
+                </button>
+                <button
+                  onClick={handleExportCsv}
+                  className="flex items-center gap-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-500 transition-colors"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14,2 14,8 20,8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <polyline points="9,15 12,18 15,15" />
+                  </svg>
+                  CSV
+                </button>
+              </>
             )}
           </div>
         </div>
