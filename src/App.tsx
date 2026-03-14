@@ -47,11 +47,11 @@ function App() {
   }, [])
 
   if (loading) {
-    const isCallback = window.location.search.includes('code=') || window.location.pathname.includes('/auth/kakao')
+    const isCallback = window.location.search.includes('code=') || window.location.pathname.includes('/auth/kakao') || window.location.pathname.includes('/auth/naver')
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-500 text-sm">{isCallback ? '카카오 로그인 처리 중...' : '로딩 중...'}</p>
+        <p className="text-gray-500 text-sm">{isCallback ? '로그인 처리 중...' : '로딩 중...'}</p>
       </div>
     )
   }

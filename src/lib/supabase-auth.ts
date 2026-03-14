@@ -1,5 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabase'
 import { redirectToKakaoLogin, handleKakaoCallback, isKakaoCallback } from './kakao-auth'
+import { redirectToNaverLogin, handleNaverCallback, isNaverCallback } from './naver-auth'
 import type { Session, User } from '@supabase/supabase-js'
 
 export type AuthProvider = 'kakao' | 'naver'
@@ -9,8 +10,10 @@ export async function signInWithProvider(provider: AuthProvider): Promise<void> 
     redirectToKakaoLogin()
     return
   }
-  // 네이버는 Phase 2에서 동일한 수동 OAuth 패턴으로 구현
-  throw new Error('네이버 로그인은 준비 중입니다')
+  if (provider === 'naver') {
+    redirectToNaverLogin()
+    return
+  }
 }
 
 export async function signOut(): Promise<void> {
@@ -35,6 +38,11 @@ export async function handleAuthCallback(): Promise<Session | null> {
   // 카카오 콜백 처리
   if (isKakaoCallback()) {
     return handleKakaoCallback()
+  }
+
+  // 네이버 콜백 처리
+  if (isNaverCallback()) {
+    return handleNaverCallback()
   }
 
   // Supabase 기본 콜백 (해시 기반)
