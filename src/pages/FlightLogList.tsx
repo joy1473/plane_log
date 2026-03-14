@@ -6,17 +6,7 @@ import type { FlightLog } from '../types/flight-log'
 
 const FlightMap = lazy(() => import('../components/FlightMap'))
 
-type FilterMode = 'all' | 'year' | 'month' | 'week' | 'custom'
-
-function getMonday(d: Date): Date {
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  return new Date(d.getFullYear(), d.getMonth(), diff)
-}
-
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10)
-}
+type FilterMode = 'all' | 'year' | 'month' | 'custom'
 
 export default function FlightLogList() {
   const [allLogs, setAllLogs] = useState<(FlightLog & { id: string })[]>([])
@@ -28,7 +18,6 @@ export default function FlightLogList() {
   const [filterMode, setFilterMode] = useState<FilterMode>('all')
   const [filterYear, setFilterYear] = useState(new Date().getFullYear())
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1)
-  const [filterWeekStart, setFilterWeekStart] = useState(formatDate(getMonday(new Date())))
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
 
@@ -79,16 +68,6 @@ export default function FlightLogList() {
         label = `${filterYear}년 ${filterMonth}월`
         break
       }
-      case 'week': {
-        const start = new Date(filterWeekStart)
-        const end = new Date(start)
-        end.setDate(end.getDate() + 6)
-        const startStr = formatDate(start)
-        const endStr = formatDate(end)
-        filtered = allLogs.filter((l) => l.flight_date >= startStr && l.flight_date <= endStr)
-        label = `${startStr} ~ ${endStr}`
-        break
-      }
       case 'custom': {
         if (customFrom && customTo) {
           filtered = allLogs.filter((l) => l.flight_date >= customFrom && l.flight_date <= customTo)
@@ -105,7 +84,7 @@ export default function FlightLogList() {
     }
 
     return { logs: filtered, dateLabel: label }
-  }, [allLogs, filterMode, filterYear, filterMonth, filterWeekStart, customFrom, customTo])
+  }, [allLogs, filterMode, filterYear, filterMonth, customFrom, customTo])
 
   async function handleDelete(id: string, date: string) {
     if (!confirm(`${date} 비행 기록을 삭제하시겠습니까?`)) return
@@ -144,7 +123,7 @@ export default function FlightLogList() {
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <span className="text-sm font-medium text-gray-700">기간 검색:</span>
-          {(['all', 'year', 'month', 'week', 'custom'] as FilterMode[]).map((mode) => (
+          {(['all', 'year', 'month', 'custom'] as FilterMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => setFilterMode(mode)}
@@ -154,7 +133,7 @@ export default function FlightLogList() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {{ all: '전체', year: '년', month: '월', week: '주', custom: '기간' }[mode]}
+              {{ all: '전체', year: '년', month: '월', custom: '기간' }[mode]}
             </button>
           ))}
         </div>
@@ -192,18 +171,6 @@ export default function FlightLogList() {
               ))}
             </select>
           </div>
-        )}
-
-        {filterMode === 'week' && (
-          <input
-            type="date"
-            value={filterWeekStart}
-            onChange={(e) => {
-              const d = new Date(e.target.value)
-              setFilterWeekStart(formatDate(getMonday(d)))
-            }}
-            className="border rounded px-3 py-1.5 text-sm"
-          />
         )}
 
         {filterMode === 'custom' && (
