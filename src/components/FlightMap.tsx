@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -30,7 +30,7 @@ interface AirfieldSummary {
 
 function FitBounds({ positions }: { positions: [number, number][] }) {
   const map = useMap()
-  useMemo(() => {
+  useEffect(() => {
     if (positions.length > 0) {
       const bounds = L.latLngBounds(positions.map(([lat, lng]) => [lat, lng]))
       map.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 })

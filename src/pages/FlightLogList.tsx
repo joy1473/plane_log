@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, lazy, Suspense, Component, type ReactNode } from 'react'
 import { fetchFlightLogs, calculateTotalHours } from '../lib/supabase-flight-log'
 import { getCachedFlightLogs, cacheFlightLogs } from '../lib/offline-store'
 import type { FlightLog } from '../types/flight-log'
@@ -60,9 +60,11 @@ export default function FlightLogList() {
 
       {/* 이착륙장 지도 */}
       {logs.length > 0 && (
-        <Suspense fallback={<div className="bg-white rounded-lg shadow p-6 text-center text-gray-400">지도 로딩 중...</div>}>
-          <FlightMap logs={logs} />
-        </Suspense>
+        <MapErrorBoundary>
+          <Suspense fallback={<div className="bg-white rounded-lg shadow p-6 text-center text-gray-400">지도 로딩 중...</div>}>
+            <FlightMap logs={logs} />
+          </Suspense>
+        </MapErrorBoundary>
       )}
 
       {/* 비행 기록 리스트 */}
@@ -105,6 +107,23 @@ export default function FlightLogList() {
       </div>
     </div>
   )
+}
+
+class MapErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null as string | null }
+  static getDerivedStateFromError(err: Error) {
+    return { error: err.message }
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="bg-white rounded-lg shadow p-6 text-center text-red-400 text-sm">
+          지도 로드 실패: {this.state.error}
+        </div>
+      )
+    }
+    return this.props.children
+  }
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {
