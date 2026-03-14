@@ -31,6 +31,8 @@ export async function handleKakaoCallback(): Promise<Session | null> {
   if (!code) return null
 
   try {
+    console.log('[kakao-auth] Edge Function 호출 시작', { SUPABASE_URL, REDIRECT_URI })
+
     // Edge Function 호출: 카카오 code → Supabase magic link 토큰
     const res = await fetch(`${SUPABASE_URL}/functions/v1/kakao-auth`, {
       method: 'POST',
@@ -38,16 +40,25 @@ export async function handleKakaoCallback(): Promise<Session | null> {
       body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
     })
 
+    console.log('[kakao-auth] Edge Function 응답 상태:', res.status)
     const data = await res.json()
-    if (data.error) throw new Error(data.error)
+    console.log('[kakao-auth] Edge Function 응답 데이터:', JSON.stringify(data))
+
+    if (data.error) throw new Error(`Edge Function 오류: ${data.error}`)
+
+    if (!data.token) throw new Error('Edge Function이 토큰을 반환하지 않았습니다')
 
     // magic link 토큰으로 Supabase 세션 생성
+    console.log('[kakao-auth] verifyOtp 호출', { token: data.token?.substring(0, 10) + '...', type: data.type })
     const { data: authData, error: authError } = await supabase.auth.verifyOtp({
       token_hash: data.token,
       type: data.type,
     })
 
-    if (authError) throw authError
+    console.log('[kakao-auth] verifyOtp 결과:', { session: !!authData?.session, error: authError })
+
+    if (authError) throw new Error(`OTP 검증 오류: ${authError.message}`)
+    if (!authData.session) throw new Error('세션 생성 실패: verifyOtp가 세션을 반환하지 않았습니다')
 
     // URL 정리 (콜백 경로 → 홈으로)
     window.history.replaceState({}, '', '/')
