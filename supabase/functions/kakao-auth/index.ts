@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const KAKAO_REST_API_KEY = Deno.env.get('KAKAO_REST_API_KEY')!
+const KAKAO_CLIENT_SECRET = Deno.env.get('KAKAO_CLIENT_SECRET')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
@@ -31,6 +32,7 @@ Deno.serve(async (req) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         client_id: KAKAO_REST_API_KEY,
+        client_secret: KAKAO_CLIENT_SECRET,
         redirect_uri,
         code,
       }),
