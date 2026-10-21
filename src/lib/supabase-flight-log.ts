@@ -13,14 +13,11 @@ async function requireUserId(): Promise<string> {
   return user.data.user.id
 }
 
-/** 신규 입력에서는 airfield 를 출발지와 맞춰 둔다 (PDF·CSV·지도 하위호환) */
-function withLegacyAirfield(log: FlightLog): FlightLog {
-  const departure = log.departure_airfield ?? log.airfield
+/** 도착지를 비워두면 장주비행으로 보고 출발지와 같게 둔다 */
+function normalize(log: FlightLog): FlightLog {
   return {
     ...log,
-    departure_airfield: departure,
-    arrival_airfield: log.arrival_airfield ?? departure,
-    airfield: departure,
+    arrival_airfield: log.arrival_airfield || log.departure_airfield,
   }
 }
 
@@ -36,7 +33,7 @@ export async function insertFlightLogs(logs: FlightLog[]): Promise<InsertResult>
     return { inserted: 0, duplicates: 0, errors: [err instanceof Error ? err.message : '로그인이 필요합니다'] }
   }
 
-  const logsWithUser = logs.map((log) => ({ ...withLegacyAirfield(log), user_id: userId }))
+  const logsWithUser = logs.map((log) => ({ ...normalize(log), user_id: userId }))
 
   const errors: string[] = []
 
@@ -80,7 +77,7 @@ export async function createFlightLog(log: FlightLog): Promise<FlightLog & { id:
   const userId = await requireUserId()
   const { data, error } = await supabase
     .from('flight_logs')
-    .insert({ ...withLegacyAirfield(log), user_id: userId })
+    .insert({ ...normalize(log), user_id: userId })
     .select()
     .single()
 
@@ -103,7 +100,7 @@ export async function updateFlightLog(
 ): Promise<FlightLog & { id: string }> {
   if (!isSupabaseConfigured) throw new Error('Supabase가 연결되지 않았습니다')
 
-  const patch = { ...withLegacyAirfield(log), updated_at: new Date().toISOString() }
+  const patch = { ...normalize(log), updated_at: new Date().toISOString() }
   delete patch.id
   delete patch.user_id
   delete patch.created_at

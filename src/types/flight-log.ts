@@ -5,10 +5,9 @@ export interface FlightLog {
   departure_time: string | null
   arrival_time: string | null
   flight_duration_min: number
-  /** 하위호환용. 신규 입력에서는 departure_airfield 와 같은 값이 들어간다 */
-  airfield: string
-  departure_airfield?: string | null
-  arrival_airfield?: string | null
+  departure_airfield: string
+  /** 장주비행이면 출발지와 같은 값 */
+  arrival_airfield: string
   instructor_name: string | null
   training_purpose: string | null
   landing_count: number

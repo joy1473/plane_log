@@ -25,10 +25,20 @@ const HEADER_MAP: Record<string, keyof FlightLog> = {
   'flight_duration_min': 'flight_duration_min',
   'duration': 'flight_duration_min',
 
-  '이착륙장': 'airfield',
-  '비행장': 'airfield',
-  '공항': 'airfield',
-  'airfield': 'airfield',
+  // 예전 CSV 의 단일 이착륙장 열은 출발지로 받는다 (도착지는 같은 값으로 채움)
+  '이착륙장': 'departure_airfield',
+  '비행장': 'departure_airfield',
+  '공항': 'departure_airfield',
+  'airfield': 'departure_airfield',
+  '출발': 'departure_airfield',
+  '출발지': 'departure_airfield',
+  '출발 이착륙장': 'departure_airfield',
+  'departure_airfield': 'departure_airfield',
+
+  '도착': 'arrival_airfield',
+  '도착지': 'arrival_airfield',
+  '도착 이착륙장': 'arrival_airfield',
+  'arrival_airfield': 'arrival_airfield',
 
   '교관 이름': 'instructor_name',
   '교관': 'instructor_name',
@@ -108,7 +118,7 @@ function parseRow(
   if (mapped.flight_duration_min == null || mapped.flight_duration_min <= 0) {
     return { log: null, error: `행 ${rowIndex + 1}: 비행 시간(분) 누락 또는 0 이하` }
   }
-  if (!mapped.airfield) {
+  if (!mapped.departure_airfield) {
     return { log: null, error: `행 ${rowIndex + 1}: 이착륙장 누락` }
   }
 
@@ -117,7 +127,9 @@ function parseRow(
     departure_time: mapped.departure_time ?? null,
     arrival_time: mapped.arrival_time ?? null,
     flight_duration_min: mapped.flight_duration_min,
-    airfield: mapped.airfield,
+    departure_airfield: mapped.departure_airfield,
+    // 도착지 열이 없는 예전 양식이면 장주비행으로 보고 출발지와 같게 둔다
+    arrival_airfield: mapped.arrival_airfield ?? mapped.departure_airfield,
     instructor_name: mapped.instructor_name ?? null,
     training_purpose: mapped.training_purpose ?? null,
     landing_count: mapped.landing_count ?? 1,
@@ -159,7 +171,7 @@ export function parseCsvFile(file: File): Promise<CsvParseResult> {
         const missingRequired: string[] = []
         if (!mappedValues.has('flight_date')) missingRequired.push('날짜')
         if (!mappedValues.has('flight_duration_min')) missingRequired.push('비행 시간(분)')
-        if (!mappedValues.has('airfield')) missingRequired.push('이착륙장')
+        if (!mappedValues.has('departure_airfield')) missingRequired.push('이착륙장')
 
         if (missingRequired.length > 0) {
           resolve({
@@ -218,7 +230,7 @@ export function parseCsvString(csvString: string): CsvParseResult {
   const missingRequired: string[] = []
   if (!mappedValues.has('flight_date')) missingRequired.push('날짜')
   if (!mappedValues.has('flight_duration_min')) missingRequired.push('비행 시간(분)')
-  if (!mappedValues.has('airfield')) missingRequired.push('이착륙장')
+  if (!mappedValues.has('departure_airfield')) missingRequired.push('이착륙장')
 
   if (missingRequired.length > 0) {
     return {

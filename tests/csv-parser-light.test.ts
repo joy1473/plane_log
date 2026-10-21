@@ -16,7 +16,8 @@ describe('parseCsvString', () => {
       departure_time: '09:00',
       arrival_time: '10:30',
       flight_duration_min: 90,
-      airfield: '울진비행장',
+      departure_airfield: '울진비행장',
+      arrival_airfield: '울진비행장',
       instructor_name: '김교관',
       training_purpose: '이착륙 훈련',
       landing_count: 3,
@@ -35,7 +36,7 @@ describe('parseCsvString', () => {
     expect(result.data).toHaveLength(1)
     expect(result.data[0].flight_date).toBe('2025-04-15')
     expect(result.data[0].flight_duration_min).toBe(60)
-    expect(result.data[0].airfield).toBe('Ulljin')
+    expect(result.data[0].departure_airfield).toBe('Ulljin')
   })
 
   it('필수 필드 누락 시 에러를 반환한다', () => {
@@ -92,7 +93,7 @@ describe('parseCsvString', () => {
     const result = parseCsvString(csv)
 
     expect(result.data).toHaveLength(1)
-    expect(result.data[0].airfield).toBe('울진비행장')
+    expect(result.data[0].departure_airfield).toBe('울진비행장')
     expect(result.data[0].instructor_name).toBe('이교관')
     expect(result.data[0].landing_count).toBe(2)
   })

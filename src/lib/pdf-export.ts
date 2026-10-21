@@ -20,7 +20,8 @@ export function exportFlightLogsPdf(
   const rows = logs.map((log) => `
     <tr>
       <td>${escapeHtml(log.flight_date)}</td>
-      <td>${escapeHtml(log.airfield)}</td>
+      <td>${escapeHtml(log.departure_airfield)}</td>
+      <td>${escapeHtml(log.arrival_airfield)}</td>
       <td style="text-align:right">${escapeHtml(log.flight_duration_min)}</td>
       <td>${escapeHtml(log.instructor_name)}</td>
       <td>${escapeHtml(log.training_purpose)}</td>
@@ -61,7 +62,8 @@ export function exportFlightLogsPdf(
     <thead>
       <tr>
         <th>날짜</th>
-        <th>이착륙장</th>
+        <th>출발</th>
+        <th>도착</th>
         <th style="text-align:right">시간(분)</th>
         <th>교관</th>
         <th>훈련 목적</th>

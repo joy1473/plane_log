@@ -10,7 +10,7 @@ import type { FlightLog, LogMode } from '../types/flight-log'
 const FlightMap = lazy(() => import('../components/FlightMap'))
 
 type FilterMode = 'all' | 'year' | 'month' | 'custom'
-type SortKey = 'flight_date' | 'airfield' | 'flight_duration_min' | 'instructor_name' | 'training_purpose' | 'landing_count'
+type SortKey = 'flight_date' | 'departure_airfield' | 'flight_duration_min' | 'instructor_name' | 'training_purpose' | 'landing_count'
 type SortDir = 'asc' | 'desc'
 
 type Row = FlightLog & { id: string }
@@ -141,7 +141,7 @@ export default function FlightLogList() {
       let vb: string | number = ''
       switch (sortKey) {
         case 'flight_date': va = a.flight_date; vb = b.flight_date; break
-        case 'airfield': va = a.departure_airfield ?? a.airfield; vb = b.departure_airfield ?? b.airfield; break
+        case 'departure_airfield': va = a.departure_airfield; vb = b.departure_airfield; break
         case 'flight_duration_min': va = a.flight_duration_min; vb = b.flight_duration_min; break
         case 'instructor_name': va = a.instructor_name ?? ''; vb = b.instructor_name ?? ''; break
         case 'training_purpose': va = a.training_purpose ?? ''; vb = b.training_purpose ?? ''; break
@@ -200,8 +200,8 @@ export default function FlightLogList() {
       l.departure_time ?? '',
       l.arrival_time ?? '',
       String(l.flight_duration_min),
-      l.departure_airfield ?? l.airfield,
-      l.arrival_airfield ?? l.airfield,
+      l.departure_airfield,
+      l.arrival_airfield,
       l.instructor_name ?? '',
       l.training_purpose ?? '',
       String(l.landing_count ?? 1),
@@ -420,7 +420,7 @@ export default function FlightLogList() {
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
                   <SortTh label="날짜" sortKey="flight_date" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
-                  <SortTh label="구간" sortKey="airfield" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="구간" sortKey="departure_airfield" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
                   <SortTh label="시간(분)" sortKey="flight_duration_min" align="right" current={sortKey} dir={sortDir} onSort={handleSort} />
                   {mode === 'training' && (
                     <>
@@ -434,8 +434,8 @@ export default function FlightLogList() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {sortedLogs.map((log) => {
-                  const from = log.departure_airfield ?? log.airfield
-                  const to = log.arrival_airfield ?? log.airfield
+                  const from = log.departure_airfield
+                  const to = log.arrival_airfield
                   return (
                     <tr key={log.id} className={`hover:bg-gray-50 ${log.is_draft ? 'bg-amber-50/60' : ''}`}>
                       <td className="px-3 py-2 whitespace-nowrap">

@@ -14,7 +14,7 @@ describe('parseCsvString - header mapping', () => {
     expect(result.data).toHaveLength(1)
     expect(result.data[0].flight_date).toBe('2024-03-01')
     expect(result.data[0].flight_duration_min).toBe(60)
-    expect(result.data[0].airfield).toBe('광주공항')
+    expect(result.data[0].departure_airfield).toBe('광주공항')
   })
 
   it('maps English headers correctly', () => {

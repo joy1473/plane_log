@@ -142,7 +142,7 @@ export default function LightAircraftLogUpload({ onUploadComplete }: UploadProps
                     <td className="px-2 py-1 border">{log.departure_time ?? '-'}</td>
                     <td className="px-2 py-1 border">{log.arrival_time ?? '-'}</td>
                     <td className="px-2 py-1 border">{log.flight_duration_min}</td>
-                    <td className="px-2 py-1 border">{log.airfield}</td>
+                    <td className="px-2 py-1 border">{log.departure_airfield}</td>
                     <td className="px-2 py-1 border">{log.instructor_name ?? '-'}</td>
                     <td className="px-2 py-1 border">{log.training_purpose ?? '-'}</td>
                   </tr>

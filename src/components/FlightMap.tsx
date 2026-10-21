@@ -44,23 +44,29 @@ export default function FlightMap({ logs }: FlightMapProps) {
     const map = new Map<string, AirfieldSummary>()
 
     for (const log of logs) {
-      if (!log.airfield) continue
-      const found = findAirfield(log.airfield)
-      if (!found) continue
+      // 출발지와 도착지를 모두 센다. 장주비행이면 둘이 같으므로 한 번만.
+      const names = new Set(
+        [log.departure_airfield, log.arrival_airfield].filter((n): n is string => !!n)
+      )
 
-      const key = found.name
-      const existing = map.get(key)
-      if (existing) {
-        existing.flights++
-        existing.totalMinutes += log.flight_duration_min
-        existing.landings += log.landing_count ?? 1
-      } else {
-        map.set(key, {
-          airfield: found,
-          flights: 1,
-          totalMinutes: log.flight_duration_min,
-          landings: log.landing_count ?? 1,
-        })
+      for (const name of names) {
+        const found = findAirfield(name)
+        if (!found) continue
+
+        const key = found.name
+        const existing = map.get(key)
+        if (existing) {
+          existing.flights++
+          existing.totalMinutes += log.flight_duration_min
+          existing.landings += log.landing_count ?? 1
+        } else {
+          map.set(key, {
+            airfield: found,
+            flights: 1,
+            totalMinutes: log.flight_duration_min,
+            landings: log.landing_count ?? 1,
+          })
+        }
       }
     }
 

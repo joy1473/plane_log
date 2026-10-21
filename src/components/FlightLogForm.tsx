@@ -50,10 +50,10 @@ export default function FlightLogForm({
   )
   const [durationTouched, setDurationTouched] = useState(editing)
   const [departure, setDeparture] = useState(
-    initial?.departure_airfield ?? initial?.airfield ?? last.departure_airfield ?? ''
+    initial?.departure_airfield ?? last.departure_airfield ?? ''
   )
   const [arrival, setArrival] = useState(
-    initial?.arrival_airfield ?? initial?.airfield ?? last.arrival_airfield ?? ''
+    initial?.arrival_airfield ?? last.arrival_airfield ?? ''
   )
   const [landings, setLandings] = useState(String(initial?.landing_count ?? 1))
   const [altitude, setAltitude] = useState(
@@ -91,7 +91,6 @@ export default function FlightLogForm({
       departure_time: departureTime || null,
       arrival_time: arrivalTime || null,
       flight_duration_min: Number(duration) || 0,
-      airfield: departure.trim(),
       departure_airfield: departure.trim(),
       arrival_airfield: (arrival.trim() || departure.trim()),
       instructor_name: mode === 'training' ? (instructor.trim() || null) : null,

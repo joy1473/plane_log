@@ -28,7 +28,8 @@ function makeLog(overrides: Partial<FlightLog> = {}): FlightLog {
     departure_time: null,
     arrival_time: null,
     flight_duration_min: 60,
-    airfield: '광주공항',
+    departure_airfield: '광주공항',
+    arrival_airfield: '광주공항',
     instructor_name: null,
     training_purpose: null,
     landing_count: 1,
@@ -46,7 +47,7 @@ describe('exportFlightLogsPdf - escapeHtml behavior', () => {
 
   it('escapes ampersands in field values', () => {
     const { writes } = setupWindowOpen()
-    exportFlightLogsPdf([makeLog({ airfield: 'A&B공항' })], '전체')
+    exportFlightLogsPdf([makeLog({ departure_airfield: 'A&B공항' })], '전체')
     const html = writes.join('')
     expect(html).toContain('A&amp;B공항')
     expect(html).not.toContain('A&B공항')
