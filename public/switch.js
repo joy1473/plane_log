@@ -20,7 +20,7 @@
   root.innerHTML = [
     '<style>',
     ':host{position:fixed;right:max(12px,env(safe-area-inset-right,0px));',
-    '  bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:2147483000;',
+    '  bottom:calc(max(12px,env(safe-area-inset-bottom,0px)) + var(--plane-switch-lift,0px));z-index:2147483000;transition:bottom .2s;',
     '  font-family:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif}',
     '.pill{display:flex;align-items:stretch;gap:2px;padding:3px;border-radius:999px;',
     '  background:var(--bg);border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.16)}',

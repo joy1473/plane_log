@@ -27,7 +27,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         // 교재(/lsa)와 허브(/hub)는 별도 정적 페이지 — 비행기록 PWA 캐시에서 제외
-        globIgnores: ['lsa/**', 'hub/**'],
+        globIgnores: ['lsa/**', 'hub/**', 'icons/**'],
         navigateFallbackDenylist: [/^\/(lsa|hub)/],
         runtimeCaching: [
           {
