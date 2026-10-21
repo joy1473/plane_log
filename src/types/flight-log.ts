@@ -20,6 +20,10 @@ export interface FlightLog {
   flight_altitude_ft: number | null
   training_institution: string | null
   remarks: string | null
+  /** 누구와 날았는지. 면허 이후에는 기록이 곧 추억이다 */
+  passenger_name?: string | null
+  fuel_cost?: number | null
+  other_cost?: number | null
   /** 교관이 확인한 시각. 교관 이름을 적는 것과는 다른 사실이다 */
   instructor_confirmed_at?: string | null
   instructor_confirmed_name?: string | null

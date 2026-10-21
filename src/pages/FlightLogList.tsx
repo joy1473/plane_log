@@ -8,6 +8,8 @@ import QualificationProgress from '../components/QualificationProgress'
 import CertificateBoard from '../components/CertificateBoard'
 import AircraftBoard from '../components/AircraftBoard'
 import VisitedAirfields from '../components/VisitedAirfields'
+import MonthlyHoursChart from '../components/MonthlyHoursChart'
+import { downloadBackup } from '../lib/backup'
 import { exportExperienceReport } from '../lib/experience-report'
 import { fetchProfile } from '../lib/certificates'
 import { exportFlightLogsPdf } from '../lib/pdf-export'
@@ -221,6 +223,15 @@ export default function FlightLogList() {
     }
   }
 
+  async function handleBackup() {
+    try {
+      const rows = await downloadBackup()
+      setError(rows + "건을 백업 파일로 내려받았습니다")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "백업 실패")
+    }
+  }
+
   function handleExportReport() {
     if (confirmedLogs.length === 0) return
     exportExperienceReport(confirmedLogs, aircraft, profile, dateLabel)
@@ -295,6 +306,14 @@ export default function FlightLogList() {
           비행 기록 추가
         </button>
 
+        <div className="flex items-center gap-2">
+        <button
+          onClick={handleBackup}
+          className="px-3 py-2 text-xs border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 bg-white"
+          title="모든 기록을 JSON 파일로 내려받습니다"
+        >
+          백업 내보내기
+        </button>
         <div className="flex items-center gap-1 bg-white rounded-lg shadow p-1" role="group" aria-label="입력 모드">
           {(['training', 'logbook'] as LogMode[]).map((m) => (
             <button
@@ -309,6 +328,7 @@ export default function FlightLogList() {
               {m === 'training' ? '훈련 모드' : '일지 모드'}
             </button>
           ))}
+        </div>
         </div>
       </div>
 
@@ -328,6 +348,8 @@ export default function FlightLogList() {
       {mode === 'training' && (
         <QualificationProgress logs={allLogs} aircraft={aircraft} />
       )}
+
+      <MonthlyHoursChart logs={allLogs} />
 
       <AircraftBoard aircraft={aircraft} logs={allLogs} />
 

@@ -70,6 +70,9 @@ export default function FlightLogForm({
     initial?.training_institution ?? last.training_institution ?? ''
   )
   const [remarks, setRemarks] = useState(initial?.remarks ?? '')
+  const [passenger, setPassenger] = useState(initial?.passenger_name ?? '')
+  const [fuelCost, setFuelCost] = useState(initial?.fuel_cost != null ? String(initial.fuel_cost) : '')
+  const [otherCost, setOtherCost] = useState(initial?.other_cost != null ? String(initial.other_cost) : '')
   const [aircraftId, setAircraftId] = useState<string | null>(
     initial?.aircraft_id ?? (aircraft.length === 1 ? aircraft[0].id : null)
   )
@@ -117,6 +120,9 @@ export default function FlightLogForm({
       landing_count: Number(landings) || 0,
       flight_altitude_ft: altitude ? Number(altitude) : null,
       remarks: remarks.trim() || null,
+      passenger_name: passenger.trim() || null,
+      fuel_cost: fuelCost ? Number(fuelCost) : null,
+      other_cost: otherCost ? Number(otherCost) : null,
       is_draft: isDraft,
       aircraft_id: aircraftId,
       pilot_role: pilotRole,
@@ -332,6 +338,34 @@ export default function FlightLogForm({
             </div>
           </>
         )}
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">동승자</label>
+          <input
+            type="text" value={passenger}
+            onChange={(e) => setPassenger(e.target.value)}
+            className="w-full border rounded px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">유류비 (원)</label>
+            <input
+              type="number" min="0" step="100" inputMode="numeric" value={fuelCost}
+              onChange={(e) => setFuelCost(e.target.value)}
+              className="w-full border rounded px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">기타 비용 (원)</label>
+            <input
+              type="number" min="0" step="100" inputMode="numeric" value={otherCost}
+              onChange={(e) => setOtherCost(e.target.value)}
+              className="w-full border rounded px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
 
         <div className="sm:col-span-2">
           <label className="block text-xs font-medium text-gray-600 mb-1">비고</label>

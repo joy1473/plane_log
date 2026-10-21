@@ -1,5 +1,5 @@
 import { useMemo, useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { findAirfield, type Airfield } from '../data/airfields'
@@ -73,6 +73,25 @@ export default function FlightMap({ logs }: FlightMapProps) {
     return Array.from(map.values())
   }, [logs])
 
+  // 야외비행 구간을 선으로 잇는다. 같은 구간을 여러 번 날았으면 한 번만 그린다.
+  const legs = useMemo(() => {
+    const seen = new Map<string, { from: Airfield; to: Airfield; count: number }>()
+    for (const log of logs) {
+      if (log.is_draft) continue
+      const a = log.departure_airfield
+      const b = log.arrival_airfield
+      if (!a || !b || a === b) continue
+      const from = findAirfield(a)
+      const to = findAirfield(b)
+      if (!from || !to) continue
+      const key = [from.name, to.name].sort().join("|")
+      const existing = seen.get(key)
+      if (existing) existing.count++
+      else seen.set(key, { from, to, count: 1 })
+    }
+    return Array.from(seen.values())
+  }, [logs])
+
   if (airfieldSummaries.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow p-6 text-center text-gray-400 text-sm">
@@ -100,6 +119,24 @@ export default function FlightMap({ logs }: FlightMapProps) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitBounds positions={positions} />
+        {legs.map((leg) => (
+          <Polyline
+            key={leg.from.name + '|' + leg.to.name}
+            positions={[
+              [leg.from.lat, leg.from.lng],
+              [leg.to.lat, leg.to.lng],
+            ]}
+            // 여러 번 난 구간일수록 굵게. 다만 너무 두꺼워지지 않게 막는다.
+            pathOptions={{ color: '#2a78d6', weight: Math.min(2 + leg.count, 6), opacity: 0.55 }}
+          >
+            <Popup>
+              <div className="text-sm">
+                <p className="font-bold">{leg.from.name} ↔ {leg.to.name}</p>
+                <p className="text-gray-500">{leg.count}회 비행</p>
+              </div>
+            </Popup>
+          </Polyline>
+        ))}
         {airfieldSummaries.map((summary) => {
           const hours = Math.floor(summary.totalMinutes / 60)
           const mins = summary.totalMinutes % 60
