@@ -1,13 +1,16 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense, Component, type ReactNode } from 'react'
-import { fetchFlightLogs, deleteFlightLog, calculateTotalHours } from '../lib/supabase-flight-log'
+import { fetchFlightLogs, deleteFlightLog, calculateTotalHours, setInstructorConfirmation } from '../lib/supabase-flight-log'
 import { getCachedFlightLogs, cacheFlightLogs } from '../lib/offline-store'
 import { fetchUserAirfields, mergeAirfieldOptions, type AirfieldOption } from '../lib/user-airfields'
 import { getLogMode, setLogMode } from '../lib/log-mode'
 import { fetchAircraft } from '../lib/aircraft'
 import QualificationProgress from '../components/QualificationProgress'
+import CertificateBoard from '../components/CertificateBoard'
+import { exportExperienceReport } from '../lib/experience-report'
+import { fetchProfile } from '../lib/certificates'
 import { exportFlightLogsPdf } from '../lib/pdf-export'
 import FlightLogForm from '../components/FlightLogForm'
-import type { Aircraft, FlightLog, LogMode } from '../types/flight-log'
+import type { Aircraft, FlightLog, LogMode, UserProfile } from '../types/flight-log'
 
 const FlightMap = lazy(() => import('../components/FlightMap'))
 
@@ -28,6 +31,8 @@ export default function FlightLogList() {
   const [editTarget, setEditTarget] = useState<Row | null>(null)
   const [airfieldOptions, setAirfieldOptions] = useState<AirfieldOption[]>([])
   const [aircraft, setAircraft] = useState<Aircraft[]>([])
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [confirming, setConfirming] = useState<string | null>(null)
   const [mode, setMode] = useState<LogMode>(getLogMode)
 
   // 검색 필터 상태
@@ -51,7 +56,9 @@ export default function FlightLogList() {
 
   const loadAircraft = useCallback(async function loadAircraft() {
     try {
-      setAircraft(await fetchAircraft())
+      const [ac, pf] = await Promise.all([fetchAircraft(), fetchProfile()])
+      setAircraft(ac)
+      setProfile(pf)
     } catch {
       // 기체를 못 불러와도 기록 입력 자체는 막지 않는다
       setAircraft([])
@@ -192,6 +199,31 @@ export default function FlightLogList() {
     }
   }
 
+  async function handleToggleConfirm(log: Row) {
+    const already = !!log.instructor_confirmed_at
+    let name: string | null = null
+    if (!already) {
+      name = prompt('확인한 교관 이름을 입력하세요', log.instructor_name ?? '')
+      if (name === null) return
+      if (!name.trim()) { setError('교관 이름을 입력해야 확인할 수 있습니다'); return }
+      name = name.trim()
+    }
+    setConfirming(log.id)
+    try {
+      await setInstructorConfirmation(log.id, name)
+      loadLogs()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '교관 확인 실패')
+    } finally {
+      setConfirming(null)
+    }
+  }
+
+  function handleExportReport() {
+    if (confirmedLogs.length === 0) return
+    exportExperienceReport(confirmedLogs, aircraft, profile, dateLabel)
+  }
+
   function handleExportPdf() {
     if (confirmedLogs.length === 0) return
     exportFlightLogsPdf(confirmedLogs, dateLabel)
@@ -294,6 +326,8 @@ export default function FlightLogList() {
       {mode === 'training' && (
         <QualificationProgress logs={allLogs} aircraft={aircraft} />
       )}
+
+      <CertificateBoard aircraft={aircraft} />
 
       {/* 검색 필터 */}
       <div className="bg-white rounded-lg shadow p-4">
@@ -422,6 +456,13 @@ export default function FlightLogList() {
                   </svg>
                   CSV
                 </button>
+                <button
+                  onClick={handleExportReport}
+                  className="flex items-center gap-1 px-3 py-1 text-xs bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors"
+                  title="기종별 비행경력 집계. 공식 서식이 아니라 옮겨 적기 위한 표입니다"
+                >
+                  경력 집계표
+                </button>
               </>
             )}
           </div>
@@ -492,6 +533,24 @@ export default function FlightLogList() {
                       )}
                       <td className="px-3 py-2 text-right">{log.landing_count}</td>
                       <td className="px-3 py-2 text-center whitespace-nowrap">
+                        {mode === 'training' && (
+                          <button
+                            onClick={() => handleToggleConfirm(log)}
+                            disabled={confirming === log.id}
+                            className={`text-xs mr-2 disabled:opacity-40 ${
+                              log.instructor_confirmed_at
+                                ? 'text-green-600 hover:text-green-800'
+                                : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                            title={
+                              log.instructor_confirmed_at
+                                ? `교관 확인됨: ${log.instructor_confirmed_name ?? ''}`
+                                : '교관 확인'
+                            }
+                          >
+                            {confirming === log.id ? '...' : log.instructor_confirmed_at ? '확인됨' : '확인'}
+                          </button>
+                        )}
                         <button
                           onClick={() => openEdit(log)}
                           className="text-blue-500 hover:text-blue-700 text-xs mr-2"

@@ -20,6 +20,9 @@ export interface FlightLog {
   flight_altitude_ft: number | null
   training_institution: string | null
   remarks: string | null
+  /** 교관이 확인한 시각. 교관 이름을 적는 것과는 다른 사실이다 */
+  instructor_confirmed_at?: string | null
+  instructor_confirmed_name?: string | null
   /** 아직 확정하지 않은 기록. 통계와 내보내기에서 제외된다 */
   is_draft?: boolean
   created_at?: string
@@ -72,4 +75,33 @@ export interface Aircraft {
   model: string | null
   note: string | null
   created_at?: string
+}
+
+/** 증명서류 종류. 보험과 안전성인증은 기체에 묶인다 */
+export const CERTIFICATE_KINDS = ['medical', 'insurance', 'airworthiness', 'rating'] as const
+export type CertificateKind = typeof CERTIFICATE_KINDS[number]
+
+export const CERTIFICATE_LABELS: Record<CertificateKind, string> = {
+  medical: '항공신체검사증명',
+  insurance: '보험',
+  airworthiness: '안전성인증',
+  rating: '자격증명 한정',
+}
+
+export interface Certificate {
+  id: string
+  user_id?: string
+  kind: CertificateKind
+  label: string | null
+  aircraft_id: string | null
+  issued_on: string | null
+  expires_on: string
+  note: string | null
+  created_at?: string
+}
+
+export interface UserProfile {
+  user_id?: string
+  name: string | null
+  birth_date: string | null
 }

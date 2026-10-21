@@ -163,3 +163,24 @@ export function calculateTotalHours(logs: FlightLog[]): {
     draftCount: logs.length - confirmed.length,
   }
 }
+
+/**
+ * 교관 확인. 교관 이름을 적어두는 것과 교관이 확인했다는 것은 다른 사실이라
+ * 시각과 확인자 이름을 따로 남긴다. 종이 로그북의 서명란에 해당한다.
+ */
+export async function setInstructorConfirmation(
+  id: string,
+  confirmedName: string | null
+): Promise<void> {
+  if (!isSupabaseConfigured) return
+
+  const { error } = await supabase
+    .from('flight_logs')
+    .update({
+      instructor_confirmed_at: confirmedName ? new Date().toISOString() : null,
+      instructor_confirmed_name: confirmedName,
+    })
+    .eq('id', id)
+
+  if (error) throw new Error(`교관 확인 오류: ${error.message}`)
+}
