@@ -109,11 +109,19 @@ Deno.serve(async (req) => {
     })
     if (linkError) throw linkError
 
-    // action_link에서 token 추출
-    const linkUrl = new URL(linkData.properties.action_link)
-    const token = linkUrl.searchParams.get('token')
-    // type은 magiclink
-    const type = linkUrl.searchParams.get('type') ?? 'magiclink'
+    // magic link 토큰. action_link 파싱은 GoTrue 버전에 따라 조용히 null 이
+    // 되므로, 문서화된 properties.hashed_token 을 우선 쓴다.
+    const props = linkData.properties as Record<string, string>
+    const token = props.hashed_token ??
+      new URL(props.action_link).searchParams.get('token')
+    const type = props.verification_type ?? 'magiclink'
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: 'magic link 토큰을 찾지 못했습니다. properties: ' + Object.keys(props).join(", ") }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     return new Response(
       JSON.stringify({ token, type, nickname, avatar_url: avatarUrl }),
