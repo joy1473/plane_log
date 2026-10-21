@@ -50,6 +50,10 @@ export async function handleNaverCallback(): Promise<Session | null> {
 
     const data = await res.json()
     if (data.error) throw new Error(`Edge Function 오류: ${data.error}`)
+    // 게이트웨이(JWT 검증 등)가 막으면 error 가 아니라 message 로 온다.
+    // 그대로 두면 아래 '토큰 없음' 으로 뭉개져서 원인을 알 수 없다.
+    if (data.message) throw new Error(`요청이 거부됐습니다 (${res.status}): ${data.message}`)
+    if (!res.ok) throw new Error(`Edge Function 응답 오류: HTTP ${res.status}`)
     if (!data.token) throw new Error('Edge Function이 토큰을 반환하지 않았습니다')
 
     const { data: authData, error: authError } = await supabase.auth.verifyOtp({

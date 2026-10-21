@@ -1,0 +1,7 @@
+# OAuth 부트스트랩 함수는 로그인 '전'에 호출되므로 JWT 가 있을 수 없다.
+# 배포할 때마다 --no-verify-jwt 를 기억하는 대신 여기에 못 박는다.
+[functions.kakao-auth]
+verify_jwt = false
+
+[functions.naver-auth]
+verify_jwt = false
