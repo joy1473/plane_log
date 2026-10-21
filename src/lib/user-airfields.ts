@@ -91,3 +91,25 @@ export function distanceKm(
     Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
   return Math.round(2 * R * Math.asin(Math.sqrt(h)) * 10) / 10
 }
+
+/**
+ * 좌표에서 가장 가까운 이착륙장. 트랙 파일의 첫/끝 점을 출발·도착으로
+ * 바꿀 때 쓴다. 너무 멀면 null — 엉뚱한 곳을 자신 있게 채우면 안 된다.
+ */
+export function nearestAirfield(
+  lat: number,
+  lng: number,
+  options: AirfieldOption[],
+  maxKm = 10
+): AirfieldOption | null {
+  let best: AirfieldOption | null = null
+  let bestKm = Infinity
+
+  for (const o of options) {
+    const d = distanceKm({ lat, lng }, o)
+    if (d === null) continue
+    if (d < bestKm) { bestKm = d; best = o }
+  }
+
+  return bestKm <= maxKm ? best : null
+}

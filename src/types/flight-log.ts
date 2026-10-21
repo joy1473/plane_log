@@ -20,6 +20,8 @@ export interface FlightLog {
   flight_altitude_ft: number | null
   training_institution: string | null
   remarks: string | null
+  /** 간소화한 GPS 궤적. 원본 파일은 저장하지 않는다 */
+  track_points?: { lat: number; lng: number; ele: number | null; time: string | null }[] | null
   /** 누구와 날았는지. 면허 이후에는 기록이 곧 추억이다 */
   passenger_name?: string | null
   fuel_cost?: number | null

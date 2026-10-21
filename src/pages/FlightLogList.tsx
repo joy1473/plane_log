@@ -9,6 +9,9 @@ import CertificateBoard from '../components/CertificateBoard'
 import AircraftBoard from '../components/AircraftBoard'
 import VisitedAirfields from '../components/VisitedAirfields'
 import MonthlyHoursChart from '../components/MonthlyHoursChart'
+import TrackImport from '../components/TrackImport'
+import LiveRecorder from '../components/LiveRecorder'
+import FlightTimeline from '../components/FlightTimeline'
 import { downloadBackup } from '../lib/backup'
 import { exportExperienceReport } from '../lib/experience-report'
 import { fetchProfile } from '../lib/certificates'
@@ -348,6 +351,12 @@ export default function FlightLogList() {
       {mode === 'training' && (
         <QualificationProgress logs={allLogs} aircraft={aircraft} />
       )}
+
+      <LiveRecorder options={airfieldOptions} aircraft={aircraft} onSaved={loadLogs} />
+
+      <TrackImport options={airfieldOptions} aircraft={aircraft} onImported={loadLogs} />
+
+      <FlightTimeline logs={allLogs} aircraft={aircraft} />
 
       <MonthlyHoursChart logs={allLogs} />
 
