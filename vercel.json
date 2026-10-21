@@ -1,5 +1,11 @@
 {
   "rewrites": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "lsa.joy.it.kr" }],
+      "destination": "/lsa/index.html"
+    },
+    { "source": "/lsa", "destination": "/lsa/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
