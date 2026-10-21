@@ -74,6 +74,8 @@ export interface Aircraft {
   category: AircraftCategory
   model: string | null
   note: string | null
+  /** 이 앱으로 기록하기 전까지 기체에 쌓여 있던 비행시간 */
+  initial_hours: number
   created_at?: string
 }
 
@@ -104,4 +106,18 @@ export interface UserProfile {
   user_id?: string
   name: string | null
   birth_date: string | null
+}
+
+/** 기체시간 기준으로 돌아오는 정비 항목 */
+export interface MaintenanceItem {
+  id: string
+  user_id?: string
+  aircraft_id: string
+  name: string
+  interval_hours: number
+  /** 마지막 수행 시점의 기체 누적시간. 없으면 남은 시간을 계산할 수 없다 */
+  last_done_hours: number | null
+  last_done_on: string | null
+  note: string | null
+  created_at?: string
 }

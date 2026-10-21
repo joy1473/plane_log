@@ -6,6 +6,8 @@ import { getLogMode, setLogMode } from '../lib/log-mode'
 import { fetchAircraft } from '../lib/aircraft'
 import QualificationProgress from '../components/QualificationProgress'
 import CertificateBoard from '../components/CertificateBoard'
+import AircraftBoard from '../components/AircraftBoard'
+import VisitedAirfields from '../components/VisitedAirfields'
 import { exportExperienceReport } from '../lib/experience-report'
 import { fetchProfile } from '../lib/certificates'
 import { exportFlightLogsPdf } from '../lib/pdf-export'
@@ -327,6 +329,8 @@ export default function FlightLogList() {
         <QualificationProgress logs={allLogs} aircraft={aircraft} />
       )}
 
+      <AircraftBoard aircraft={aircraft} logs={allLogs} />
+
       <CertificateBoard aircraft={aircraft} />
 
       {/* 검색 필터 */}
@@ -577,6 +581,8 @@ export default function FlightLogList() {
           </div>
         )}
       </div>
+
+      <VisitedAirfields logs={logs} options={airfieldOptions} />
 
       {/* 이착륙장 지도 */}
       {logs.length > 0 && (

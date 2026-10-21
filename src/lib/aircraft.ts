@@ -22,6 +22,7 @@ export async function createAircraft(input: {
   category: AircraftCategory
   model?: string | null
   note?: string | null
+  initial_hours?: number
 }): Promise<Aircraft> {
   if (!isSupabaseConfigured) throw new Error('Supabase가 연결되지 않았습니다')
 
@@ -36,6 +37,7 @@ export async function createAircraft(input: {
       category: input.category,
       model: input.model?.trim() || null,
       note: input.note?.trim() || null,
+      initial_hours: input.initial_hours ?? 0,
     })
     .select()
     .single()

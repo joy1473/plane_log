@@ -18,6 +18,7 @@ export default function AircraftSelect({ value, onChange, aircraft, onAircraftAd
   const [registration, setRegistration] = useState('')
   const [category, setCategory] = useState<AircraftCategory>('타면조종형비행기')
   const [model, setModel] = useState('')
+  const [initialHours, setInitialHours] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -26,12 +27,16 @@ export default function AircraftSelect({ value, onChange, aircraft, onAircraftAd
     setSaving(true)
     setError('')
     try {
-      const created = await createAircraft({ registration, category, model })
+      const created = await createAircraft({
+        registration, category, model,
+        initial_hours: initialHours ? Number(initialHours) : 0,
+      })
       onAircraftAdded()
       onChange(created.id)
       setAdding(false)
       setRegistration('')
       setModel('')
+      setInitialHours('')
     } catch (err) {
       setError(err instanceof Error ? err.message : '등록 실패')
     } finally {
@@ -95,7 +100,14 @@ export default function AircraftSelect({ value, onChange, aircraft, onAircraftAd
               type="text" value={model}
               onChange={(e) => setModel(e.target.value)}
               placeholder="기종명 (선택)"
-              className="border rounded px-2 py-1.5 text-sm sm:col-span-2"
+              className="border rounded px-2 py-1.5 text-sm"
+            />
+            <input
+              type="number" step="0.1" min="0" inputMode="decimal" value={initialHours}
+              onChange={(e) => setInitialHours(e.target.value)}
+              placeholder="기존 누적시간 (선택)"
+              title="이 앱으로 기록하기 전까지 기체에 쌓여 있던 비행시간"
+              className="border rounded px-2 py-1.5 text-sm"
             />
           </div>
           <p className="text-xs text-blue-900">
