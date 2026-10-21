@@ -5,14 +5,20 @@ export interface FlightLog {
   departure_time: string | null
   arrival_time: string | null
   flight_duration_min: number
+  /** 하위호환용. 신규 입력에서는 departure_airfield 와 같은 값이 들어간다 */
   airfield: string
+  departure_airfield?: string | null
+  arrival_airfield?: string | null
   instructor_name: string | null
   training_purpose: string | null
   landing_count: number
   flight_altitude_ft: number | null
   training_institution: string | null
   remarks: string | null
+  /** 아직 확정하지 않은 기록. 통계와 내보내기에서 제외된다 */
+  is_draft?: boolean
   created_at?: string
+  updated_at?: string | null
 }
 
 export interface CsvParseResult {
@@ -20,3 +26,20 @@ export interface CsvParseResult {
   errors: string[]
   skipped: number
 }
+
+/** 사용자가 직접 등록한 이착륙장 */
+export interface UserAirfield {
+  id: string
+  user_id?: string
+  name: string
+  lat: number | null
+  lng: number | null
+  note: string | null
+  created_at?: string
+}
+
+/**
+ * 훈련 모드는 교관·훈련목적·교육기관을 묻고, 일지 모드는 묻지 않는다.
+ * 훈련은 길어야 몇 달이고 그 뒤는 수십 년이라 둘 다 기본 모드로 둔다.
+ */
+export type LogMode = 'training' | 'logbook'

@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense, Component, type ReactNode } from 'react'
 import { fetchFlightLogs, deleteFlightLog, calculateTotalHours } from '../lib/supabase-flight-log'
 import { getCachedFlightLogs, cacheFlightLogs } from '../lib/offline-store'
+import { fetchUserAirfields, mergeAirfieldOptions, type AirfieldOption } from '../lib/user-airfields'
+import { getLogMode, setLogMode } from '../lib/log-mode'
 import { exportFlightLogsPdf } from '../lib/pdf-export'
-import type { FlightLog } from '../types/flight-log'
+import FlightLogForm from '../components/FlightLogForm'
+import type { FlightLog, LogMode } from '../types/flight-log'
 
 const FlightMap = lazy(() => import('../components/FlightMap'))
 
@@ -10,11 +13,19 @@ type FilterMode = 'all' | 'year' | 'month' | 'custom'
 type SortKey = 'flight_date' | 'airfield' | 'flight_duration_min' | 'instructor_name' | 'training_purpose' | 'landing_count'
 type SortDir = 'asc' | 'desc'
 
+type Row = FlightLog & { id: string }
+
 export default function FlightLogList() {
-  const [allLogs, setAllLogs] = useState<(FlightLog & { id: string })[]>([])
+  const [allLogs, setAllLogs] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [error, setError] = useState('')
+
+  // 입력 / 수정
+  const [formOpen, setFormOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<Row | null>(null)
+  const [airfieldOptions, setAirfieldOptions] = useState<AirfieldOption[]>([])
+  const [mode, setMode] = useState<LogMode>(getLogMode)
 
   // 검색 필터 상태
   const [filterMode, setFilterMode] = useState<FilterMode>('all')
@@ -25,6 +36,16 @@ export default function FlightLogList() {
   const [sortKey, setSortKey] = useState<SortKey>('flight_date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
+  const loadAirfields = useCallback(async function loadAirfields() {
+    try {
+      const custom = await fetchUserAirfields()
+      setAirfieldOptions(mergeAirfieldOptions(custom))
+    } catch {
+      // 사설 이착륙장을 못 불러와도 내장 목록만으로 입력은 가능해야 한다
+      setAirfieldOptions(mergeAirfieldOptions([]))
+    }
+  }, [])
+
   const loadLogs = useCallback(async function loadLogs() {
     setLoading(true)
     setError('')
@@ -32,7 +53,7 @@ export default function FlightLogList() {
     try {
       if (navigator.onLine) {
         const data = await fetchFlightLogs()
-        const withId = data.filter((d): d is FlightLog & { id: string } => !!d.id)
+        const withId = data.filter((d): d is Row => !!d.id)
         setAllLogs(withId)
         await cacheFlightLogs(withId)
       } else {
@@ -53,7 +74,29 @@ export default function FlightLogList() {
 
   useEffect(() => {
     loadLogs()
-  }, [loadLogs])
+    loadAirfields()
+  }, [loadLogs, loadAirfields])
+
+  function changeMode(next: LogMode) {
+    setMode(next)
+    setLogMode(next)
+  }
+
+  function openNew() {
+    setEditTarget(null)
+    setFormOpen(true)
+  }
+
+  function openEdit(log: Row) {
+    setEditTarget(log)
+    setFormOpen(true)
+  }
+
+  function handleSaved() {
+    setFormOpen(false)
+    setEditTarget(null)
+    loadLogs()
+  }
 
   // 필터링된 로그
   const { logs, dateLabel } = useMemo(() => {
@@ -98,7 +141,7 @@ export default function FlightLogList() {
       let vb: string | number = ''
       switch (sortKey) {
         case 'flight_date': va = a.flight_date; vb = b.flight_date; break
-        case 'airfield': va = a.airfield; vb = b.airfield; break
+        case 'airfield': va = a.departure_airfield ?? a.airfield; vb = b.departure_airfield ?? b.airfield; break
         case 'flight_duration_min': va = a.flight_duration_min; vb = b.flight_duration_min; break
         case 'instructor_name': va = a.instructor_name ?? ''; vb = b.instructor_name ?? ''; break
         case 'training_purpose': va = a.training_purpose ?? ''; vb = b.training_purpose ?? ''; break
@@ -110,6 +153,9 @@ export default function FlightLogList() {
     })
     return sorted
   }, [logs, sortKey, sortDir])
+
+  /** 임시저장은 미확정 기록이라 제출용 출력에서 뺀다 */
+  const confirmedLogs = useMemo(() => sortedLogs.filter((l) => !l.is_draft), [sortedLogs])
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -134,8 +180,8 @@ export default function FlightLogList() {
   }
 
   function handleExportPdf() {
-    if (sortedLogs.length === 0) return
-    exportFlightLogsPdf(sortedLogs, dateLabel)
+    if (confirmedLogs.length === 0) return
+    exportFlightLogsPdf(confirmedLogs, dateLabel)
   }
 
   function sanitizeCsvValue(v: string): string {
@@ -147,14 +193,15 @@ export default function FlightLogList() {
   }
 
   function handleExportCsv() {
-    if (sortedLogs.length === 0) return
-    const headers = ['날짜', '출발시간', '도착시간', '비행시간(분)', '이착륙장', '교관', '훈련목적', '착륙횟수', '비행고도', '교육기관', '비고']
-    const rows = sortedLogs.map((l) => [
+    if (confirmedLogs.length === 0) return
+    const headers = ['날짜', '출발시간', '도착시간', '비행시간(분)', '출발', '도착', '교관', '훈련목적', '착륙횟수', '비행고도', '교육기관', '비고']
+    const rows = confirmedLogs.map((l) => [
       l.flight_date,
       l.departure_time ?? '',
       l.arrival_time ?? '',
       String(l.flight_duration_min),
-      l.airfield,
+      l.departure_airfield ?? l.airfield,
+      l.arrival_airfield ?? l.airfield,
       l.instructor_name ?? '',
       l.training_purpose ?? '',
       String(l.landing_count ?? 1),
@@ -188,21 +235,62 @@ export default function FlightLogList() {
 
   return (
     <div className="space-y-6">
+      {/* 기록 추가 · 모드 전환 */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          onClick={openNew}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm bg-blue-700 text-white rounded-lg hover:bg-blue-600 transition-colors shadow"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          비행 기록 추가
+        </button>
+
+        <div className="flex items-center gap-1 bg-white rounded-lg shadow p-1" role="group" aria-label="입력 모드">
+          {(['training', 'logbook'] as LogMode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => changeMode(m)}
+              aria-pressed={mode === m}
+              className={`px-3 py-1 text-xs rounded transition-colors ${
+                mode === m ? 'bg-blue-700 text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+              title={m === 'training' ? '교관·훈련목적·교육기관을 함께 기록합니다' : '날짜·구간·시간만 기록합니다'}
+            >
+              {m === 'training' ? '훈련 모드' : '일지 모드'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {formOpen && (
+        <FlightLogForm
+          initial={editTarget}
+          mode={mode}
+          options={airfieldOptions}
+          onAirfieldAdded={loadAirfields}
+          onSaved={handleSaved}
+          onCancel={() => { setFormOpen(false); setEditTarget(null) }}
+        />
+      )}
+
       {/* 검색 필터 */}
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <span className="text-sm font-medium text-gray-700">기간 검색:</span>
-          {(['all', 'year', 'month', 'custom'] as FilterMode[]).map((mode) => (
+          {(['all', 'year', 'month', 'custom'] as FilterMode[]).map((m) => (
             <button
-              key={mode}
-              onClick={() => setFilterMode(mode)}
+              key={m}
+              onClick={() => setFilterMode(m)}
               className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                filterMode === mode
+                filterMode === m
                   ? 'bg-blue-700 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {{ all: '전체', year: '년', month: '월', custom: '기간' }[mode]}
+              {{ all: '전체', year: '년', month: '월', custom: '기간' }[m]}
             </button>
           ))}
         </div>
@@ -275,6 +363,12 @@ export default function FlightLogList() {
         <StatCard label={filterMode === 'all' ? '총 비행 시간(분)' : '기간 비행 시간(분)'} value={`${stats.totalMinutes}분`} />
       </div>
 
+      {stats.draftCount > 0 && (
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+          임시저장 {stats.draftCount}건은 통계와 PDF·CSV 출력에서 빠져 있습니다. 확정하려면 기록을 열어 저장하세요.
+        </p>
+      )}
+
       {error && <p className="text-sm text-orange-600">{error}</p>}
 
       {/* 비행 기록 리스트 */}
@@ -283,7 +377,7 @@ export default function FlightLogList() {
           <h2 className="font-semibold">비행 기록</h2>
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500">{logs.length}건</span>
-            {logs.length > 0 && (
+            {confirmedLogs.length > 0 && (
               <>
                 <button
                   onClick={handleExportPdf}
@@ -316,7 +410,9 @@ export default function FlightLogList() {
 
         {logs.length === 0 ? (
           <p className="text-center py-8 text-gray-400">
-            {filterMode === 'all' ? '비행 기록이 없습니다. CSV 파일을 업로드하세요.' : '해당 기간의 비행 기록이 없습니다.'}
+            {filterMode === 'all'
+              ? '비행 기록이 없습니다. 위의 「비행 기록 추가」를 누르거나 CSV 파일을 업로드하세요.'
+              : '해당 기간의 비행 기록이 없습니다.'}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -324,36 +420,65 @@ export default function FlightLogList() {
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
                   <SortTh label="날짜" sortKey="flight_date" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
-                  <SortTh label="이착륙장" sortKey="airfield" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="구간" sortKey="airfield" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
                   <SortTh label="시간(분)" sortKey="flight_duration_min" align="right" current={sortKey} dir={sortDir} onSort={handleSort} />
-                  <SortTh label="교관" sortKey="instructor_name" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
-                  <SortTh label="훈련 목적" sortKey="training_purpose" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  {mode === 'training' && (
+                    <>
+                      <SortTh label="교관" sortKey="instructor_name" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
+                      <SortTh label="훈련 목적" sortKey="training_purpose" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
+                    </>
+                  )}
                   <SortTh label="착륙" sortKey="landing_count" align="right" current={sortKey} dir={sortDir} onSort={handleSort} />
-                  <th className="px-3 py-2 w-10"></th>
+                  <th className="px-3 py-2 w-20"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {sortedLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2">{log.flight_date}</td>
-                    <td className="px-3 py-2">{log.airfield}</td>
-                    <td className="px-3 py-2 text-right">{log.flight_duration_min}</td>
-                    <td className="px-3 py-2">{log.instructor_name ?? '-'}</td>
-                    <td className="px-3 py-2">{log.training_purpose ?? '-'}</td>
-                    <td className="px-3 py-2 text-right">{log.landing_count}</td>
-                    <td className="px-3 py-2 text-center">
-                      <button
-                        onClick={() => handleDelete(log.id, log.flight_date)}
-                        disabled={deleting === log.id}
-                        className="text-red-400 hover:text-red-600 disabled:opacity-30 text-xs"
-                        title="삭제"
-                        aria-label="삭제"
-                      >
-                        {deleting === log.id ? '...' : '✕'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {sortedLogs.map((log) => {
+                  const from = log.departure_airfield ?? log.airfield
+                  const to = log.arrival_airfield ?? log.airfield
+                  return (
+                    <tr key={log.id} className={`hover:bg-gray-50 ${log.is_draft ? 'bg-amber-50/60' : ''}`}>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {log.flight_date}
+                        {log.is_draft && (
+                          <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded align-middle">
+                            임시
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {from === to ? from : <span>{from} <span className="text-gray-400">→</span> {to}</span>}
+                      </td>
+                      <td className="px-3 py-2 text-right">{log.flight_duration_min}</td>
+                      {mode === 'training' && (
+                        <>
+                          <td className="px-3 py-2">{log.instructor_name ?? '-'}</td>
+                          <td className="px-3 py-2">{log.training_purpose ?? '-'}</td>
+                        </>
+                      )}
+                      <td className="px-3 py-2 text-right">{log.landing_count}</td>
+                      <td className="px-3 py-2 text-center whitespace-nowrap">
+                        <button
+                          onClick={() => openEdit(log)}
+                          className="text-blue-500 hover:text-blue-700 text-xs mr-2"
+                          title="수정"
+                          aria-label={`${log.flight_date} 기록 수정`}
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => handleDelete(log.id, log.flight_date)}
+                          disabled={deleting === log.id}
+                          className="text-red-400 hover:text-red-600 disabled:opacity-30 text-xs"
+                          title="삭제"
+                          aria-label={`${log.flight_date} 기록 삭제`}
+                        >
+                          {deleting === log.id ? '...' : '✕'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -408,7 +533,7 @@ function SortTh({ label, sortKey: key, align, current, dir, onSort }: {
       <span className="inline-flex items-center gap-1">
         {label}
         <span className={`text-[10px] ${active ? 'text-blue-700' : 'text-gray-300'}`}>
-          {active ? (dir === 'asc' ? '\u25B2' : '\u25BC') : '\u25BC'}
+          {active ? (dir === 'asc' ? '▲' : '▼') : '▼'}
         </span>
       </span>
     </th>

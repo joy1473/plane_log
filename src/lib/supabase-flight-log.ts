@@ -7,18 +7,36 @@ export interface InsertResult {
   errors: string[]
 }
 
+async function requireUserId(): Promise<string> {
+  const user = await supabase.auth.getUser()
+  if (!user.data.user) throw new Error('로그인이 필요합니다')
+  return user.data.user.id
+}
+
+/** 신규 입력에서는 airfield 를 출발지와 맞춰 둔다 (PDF·CSV·지도 하위호환) */
+function withLegacyAirfield(log: FlightLog): FlightLog {
+  const departure = log.departure_airfield ?? log.airfield
+  return {
+    ...log,
+    departure_airfield: departure,
+    arrival_airfield: log.arrival_airfield ?? departure,
+    airfield: departure,
+  }
+}
+
 export async function insertFlightLogs(logs: FlightLog[]): Promise<InsertResult> {
   if (!isSupabaseConfigured) {
     return { inserted: logs.length, duplicates: 0, errors: [] }
   }
 
-  const user = await supabase.auth.getUser()
-  if (!user.data.user) {
-    return { inserted: 0, duplicates: 0, errors: ['로그인이 필요합니다'] }
+  let userId: string
+  try {
+    userId = await requireUserId()
+  } catch (err) {
+    return { inserted: 0, duplicates: 0, errors: [err instanceof Error ? err.message : '로그인이 필요합니다'] }
   }
 
-  const userId = user.data.user.id
-  const logsWithUser = logs.map((log) => ({ ...log, user_id: userId }))
+  const logsWithUser = logs.map((log) => ({ ...withLegacyAirfield(log), user_id: userId }))
 
   const errors: string[] = []
 
@@ -55,6 +73,57 @@ export async function insertFlightLogs(logs: FlightLog[]): Promise<InsertResult>
   return { inserted, duplicates, errors }
 }
 
+/** 직접 입력 폼에서 기록 한 건을 저장한다 */
+export async function createFlightLog(log: FlightLog): Promise<FlightLog & { id: string }> {
+  if (!isSupabaseConfigured) throw new Error('Supabase가 연결되지 않았습니다')
+
+  const userId = await requireUserId()
+  const { data, error } = await supabase
+    .from('flight_logs')
+    .insert({ ...withLegacyAirfield(log), user_id: userId })
+    .select()
+    .single()
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('같은 날짜·출발시간의 기록이 이미 있습니다')
+    }
+    throw new Error(`저장 오류: ${error.message}`)
+  }
+  return data
+}
+
+/**
+ * 기존 기록을 수정한다. 지금까지는 삭제 후 재등록밖에 방법이 없었다.
+ * 법정 기록이라 오타 하나에 행을 날리는 상황을 만들면 안 된다.
+ */
+export async function updateFlightLog(
+  id: string,
+  log: FlightLog
+): Promise<FlightLog & { id: string }> {
+  if (!isSupabaseConfigured) throw new Error('Supabase가 연결되지 않았습니다')
+
+  const patch = { ...withLegacyAirfield(log), updated_at: new Date().toISOString() }
+  delete patch.id
+  delete patch.user_id
+  delete patch.created_at
+
+  const { data, error } = await supabase
+    .from('flight_logs')
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('같은 날짜·출발시간의 기록이 이미 있습니다')
+    }
+    throw new Error(`수정 오류: ${error.message}`)
+  }
+  return data
+}
+
 export async function fetchFlightLogs(): Promise<FlightLog[]> {
   if (!isSupabaseConfigured) return []
 
@@ -74,19 +143,26 @@ export async function deleteFlightLog(id: string): Promise<void> {
   if (error) throw new Error(`삭제 오류: ${error.message}`)
 }
 
+/**
+ * 임시저장은 아직 확정하지 않은 기록이므로 합계에서 뺀다.
+ * 제출용 수치에 미확정 값이 섞이면 안 된다.
+ */
 export function calculateTotalHours(logs: FlightLog[]): {
   totalMinutes: number
   totalHours: string
   totalFlights: number
   totalLandings: number
+  draftCount: number
 } {
-  const totalMinutes = logs.reduce((sum, log) => sum + log.flight_duration_min, 0)
+  const confirmed = logs.filter((log) => !log.is_draft)
+  const totalMinutes = confirmed.reduce((sum, log) => sum + log.flight_duration_min, 0)
   const hours = Math.floor(totalMinutes / 60)
   const mins = totalMinutes % 60
   return {
     totalMinutes,
     totalHours: `${hours}시간 ${mins}분`,
-    totalFlights: logs.length,
-    totalLandings: logs.reduce((sum, log) => sum + (log.landing_count ?? 0), 0),
+    totalFlights: confirmed.length,
+    totalLandings: confirmed.reduce((sum, log) => sum + (log.landing_count ?? 0), 0),
+    draftCount: logs.length - confirmed.length,
   }
 }
