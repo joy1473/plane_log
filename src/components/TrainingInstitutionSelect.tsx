@@ -23,7 +23,7 @@ export default function TrainingInstitutionSelect({ value, onChange, className =
   const [category, setCategory] = useState<CategoryKey>('경량항공기조종사과정')
   const [isOther, setIsOther] = useState(false)
 
-  const institutions = (institutionsData as Record<string, any>)[category] as { name: string; location?: string; operating_airports?: string }[] ?? []
+  const institutions = ((institutionsData as unknown as Record<string, { name: string; location?: string; operating_airports?: string }[]>)[category]) ?? []
 
   function handleCategoryChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setCategory(e.target.value as CategoryKey)

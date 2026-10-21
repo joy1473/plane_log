@@ -20,20 +20,32 @@ export async function insertFlightLogs(logs: FlightLog[]): Promise<InsertResult>
   const userId = user.data.user.id
   const logsWithUser = logs.map((log) => ({ ...log, user_id: userId }))
 
-  let inserted = 0
-  let duplicates = 0
   const errors: string[] = []
 
+  // 배치 삽입 시도 (N+1 방지)
+  const { data, error } = await supabase
+    .from('flight_logs')
+    .insert(logsWithUser)
+    .select('id')
+
+  if (!error) {
+    return { inserted: data?.length ?? logsWithUser.length, duplicates: 0, errors }
+  }
+
+  // 배치 실패 시 (중복 등) 개별 삽입으로 폴백
+  let inserted = 0
+  let duplicates = 0
+
   for (const log of logsWithUser) {
-    const { error } = await supabase
+    const { error: rowError } = await supabase
       .from('flight_logs')
       .insert(log)
 
-    if (error) {
-      if (error.code === '23505') {
+    if (rowError) {
+      if (rowError.code === '23505') {
         duplicates++
       } else {
-        errors.push(`${log.flight_date}: ${error.message}`)
+        errors.push(`${log.flight_date}: ${rowError.message}`)
       }
     } else {
       inserted++
