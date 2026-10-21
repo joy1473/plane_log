@@ -1,17 +1,20 @@
 import { useState, useEffect, useMemo } from 'react'
 import AirfieldSelect from './AirfieldSelect'
+import AircraftSelect from './AircraftSelect'
 import TrainingInstitutionSelect from './TrainingInstitutionSelect'
 import { createFlightLog, updateFlightLog } from '../lib/supabase-flight-log'
 import { distanceKm, type AirfieldOption } from '../lib/user-airfields'
 import { setLastEntry, getLastEntry } from '../lib/log-mode'
-import type { FlightLog, LogMode } from '../types/flight-log'
+import type { Aircraft, FlightLog, LogMode, PilotRole } from '../types/flight-log'
 
 interface Props {
   /** 수정할 기록. 없으면 신규 입력 */
   initial?: (FlightLog & { id: string }) | null
   mode: LogMode
   options: AirfieldOption[]
+  aircraft: Aircraft[]
   onAirfieldAdded: () => void
+  onAircraftAdded: () => void
   onSaved: () => void
   onCancel: () => void
 }
@@ -37,7 +40,7 @@ function minutesBetween(from: string, to: string): number | null {
 }
 
 export default function FlightLogForm({
-  initial, mode, options, onAirfieldAdded, onSaved, onCancel,
+  initial, mode, options, aircraft, onAirfieldAdded, onAircraftAdded, onSaved, onCancel,
 }: Props) {
   const editing = !!initial
   const last = useMemo(() => (editing ? {} : getLastEntry()), [editing])
@@ -67,6 +70,12 @@ export default function FlightLogForm({
     initial?.training_institution ?? last.training_institution ?? ''
   )
   const [remarks, setRemarks] = useState(initial?.remarks ?? '')
+  const [aircraftId, setAircraftId] = useState<string | null>(
+    initial?.aircraft_id ?? (aircraft.length === 1 ? aircraft[0].id : null)
+  )
+  const [pilotRole, setPilotRole] = useState<PilotRole>(initial?.pilot_role ?? 'dual')
+  const [crossCountry, setCrossCountry] = useState(initial?.is_cross_country ?? false)
+  const [crossCountryTouched, setCrossCountryTouched] = useState(editing)
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -85,6 +94,15 @@ export default function FlightLogForm({
     return distanceKm(from, to)
   }, [departure, arrival, options])
 
+  // 출발지와 도착지가 다르면 야외비행으로 보고 켜 둔다.
+  // 직접 건드린 뒤에는 추측으로 덮어쓰지 않는다.
+  useEffect(() => {
+    if (crossCountryTouched) return
+    const from = departure.trim()
+    const to = arrival.trim()
+    setCrossCountry(!!from && !!to && from !== to)
+  }, [departure, arrival, crossCountryTouched])
+
   function buildLog(isDraft: boolean): FlightLog {
     return {
       flight_date: flightDate,
@@ -100,6 +118,10 @@ export default function FlightLogForm({
       flight_altitude_ft: altitude ? Number(altitude) : null,
       remarks: remarks.trim() || null,
       is_draft: isDraft,
+      aircraft_id: aircraftId,
+      pilot_role: pilotRole,
+      is_cross_country: crossCountry,
+      leg_distance_km: legDistance,
     }
   }
 
@@ -243,6 +265,47 @@ export default function FlightLogForm({
             onChange={(e) => setAltitude(e.target.value)}
             className="w-full border rounded px-3 py-2 text-sm"
           />
+        </div>
+
+        <div className="sm:col-span-2">
+          <AircraftSelect
+            value={aircraftId} onChange={setAircraftId}
+            aircraft={aircraft} onAircraftAdded={onAircraftAdded}
+          />
+        </div>
+
+        <div>
+          <span className="block text-xs font-medium text-gray-600 mb-1">조종 구분</span>
+          <div className="flex gap-1 bg-gray-100 rounded p-1" role="group" aria-label="조종 구분">
+            {(['dual', 'solo'] as PilotRole[]).map((r) => (
+              <button
+                key={r} type="button"
+                onClick={() => setPilotRole(r)}
+                aria-pressed={pilotRole === r}
+                className={`flex-1 px-3 py-1.5 text-xs rounded transition-colors ${
+                  pilotRole === r ? 'bg-blue-700 text-white' : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {r === 'dual' ? '동승' : '단독'}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-1">단독 5시간이 응시경력 요건입니다</p>
+        </div>
+
+        <div>
+          <span className="block text-xs font-medium text-gray-600 mb-1">야외비행</span>
+          <label className="flex items-center gap-2 border rounded px-3 py-2 text-sm cursor-pointer">
+            <input
+              type="checkbox" checked={crossCountry}
+              onChange={(e) => { setCrossCountry(e.target.checked); setCrossCountryTouched(true) }}
+              className="rounded"
+            />
+            <span>야외비행으로 기록</span>
+          </label>
+          {!crossCountryTouched && crossCountry && (
+            <p className="text-xs text-gray-400 mt-1">출발지와 도착지가 달라 자동으로 켰습니다</p>
+          )}
         </div>
 
         {mode === 'training' && (

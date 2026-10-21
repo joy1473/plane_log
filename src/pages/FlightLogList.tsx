@@ -3,9 +3,11 @@ import { fetchFlightLogs, deleteFlightLog, calculateTotalHours } from '../lib/su
 import { getCachedFlightLogs, cacheFlightLogs } from '../lib/offline-store'
 import { fetchUserAirfields, mergeAirfieldOptions, type AirfieldOption } from '../lib/user-airfields'
 import { getLogMode, setLogMode } from '../lib/log-mode'
+import { fetchAircraft } from '../lib/aircraft'
+import QualificationProgress from '../components/QualificationProgress'
 import { exportFlightLogsPdf } from '../lib/pdf-export'
 import FlightLogForm from '../components/FlightLogForm'
-import type { FlightLog, LogMode } from '../types/flight-log'
+import type { Aircraft, FlightLog, LogMode } from '../types/flight-log'
 
 const FlightMap = lazy(() => import('../components/FlightMap'))
 
@@ -25,6 +27,7 @@ export default function FlightLogList() {
   const [formOpen, setFormOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Row | null>(null)
   const [airfieldOptions, setAirfieldOptions] = useState<AirfieldOption[]>([])
+  const [aircraft, setAircraft] = useState<Aircraft[]>([])
   const [mode, setMode] = useState<LogMode>(getLogMode)
 
   // 검색 필터 상태
@@ -43,6 +46,15 @@ export default function FlightLogList() {
     } catch {
       // 사설 이착륙장을 못 불러와도 내장 목록만으로 입력은 가능해야 한다
       setAirfieldOptions(mergeAirfieldOptions([]))
+    }
+  }, [])
+
+  const loadAircraft = useCallback(async function loadAircraft() {
+    try {
+      setAircraft(await fetchAircraft())
+    } catch {
+      // 기체를 못 불러와도 기록 입력 자체는 막지 않는다
+      setAircraft([])
     }
   }, [])
 
@@ -75,7 +87,8 @@ export default function FlightLogList() {
   useEffect(() => {
     loadLogs()
     loadAirfields()
-  }, [loadLogs, loadAirfields])
+    loadAircraft()
+  }, [loadLogs, loadAirfields, loadAircraft])
 
   function changeMode(next: LogMode) {
     setMode(next)
@@ -270,10 +283,16 @@ export default function FlightLogList() {
           initial={editTarget}
           mode={mode}
           options={airfieldOptions}
+          aircraft={aircraft}
           onAirfieldAdded={loadAirfields}
+          onAircraftAdded={loadAircraft}
           onSaved={handleSaved}
           onCancel={() => { setFormOpen(false); setEditTarget(null) }}
         />
+      )}
+
+      {mode === 'training' && (
+        <QualificationProgress logs={allLogs} aircraft={aircraft} />
       )}
 
       {/* 검색 필터 */}
@@ -428,6 +447,9 @@ export default function FlightLogList() {
                       <SortTh label="훈련 목적" sortKey="training_purpose" align="left" current={sortKey} dir={sortDir} onSort={handleSort} />
                     </>
                   )}
+                  {mode === 'training' && (
+                    <th className="px-3 py-2 text-left">구분</th>
+                  )}
                   <SortTh label="착륙" sortKey="landing_count" align="right" current={sortKey} dir={sortDir} onSort={handleSort} />
                   <th className="px-3 py-2 w-20"></th>
                 </tr>
@@ -455,6 +477,18 @@ export default function FlightLogList() {
                           <td className="px-3 py-2">{log.instructor_name ?? '-'}</td>
                           <td className="px-3 py-2">{log.training_purpose ?? '-'}</td>
                         </>
+                      )}
+                      {mode === 'training' && (
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {log.pilot_role === 'solo' && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded mr-1">단독</span>
+                          )}
+                          {log.is_cross_country && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-800 rounded">
+                              야외{log.leg_distance_km ? ` ${log.leg_distance_km}km` : ''}
+                            </span>
+                          )}
+                        </td>
                       )}
                       <td className="px-3 py-2 text-right">{log.landing_count}</td>
                       <td className="px-3 py-2 text-center whitespace-nowrap">

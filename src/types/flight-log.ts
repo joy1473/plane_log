@@ -8,6 +8,12 @@ export interface FlightLog {
   departure_airfield: string
   /** 장주비행이면 출발지와 같은 값 */
   arrival_airfield: string
+  aircraft_id?: string | null
+  /** 단독 5시간 요건 집계에 쓰인다 */
+  pilot_role?: PilotRole
+  is_cross_country?: boolean
+  /** 출발·도착 좌표로 자동 계산되지만 직접 고칠 수 있다 */
+  leg_distance_km?: number | null
   instructor_name: string | null
   training_purpose: string | null
   landing_count: number
@@ -42,3 +48,28 @@ export interface UserAirfield {
  * 훈련은 길어야 몇 달이고 그 뒤는 수십 년이라 둘 다 기본 모드로 둔다.
  */
 export type LogMode = 'training' | 'logbook'
+
+/** 항공안전법상 경량항공기 5종. 종류별로 자격 요건이 다르다 */
+export const AIRCRAFT_CATEGORIES = [
+  '타면조종형비행기',
+  '체중이동형비행기',
+  '경량헬리콥터',
+  '자이로플레인',
+  '동력패러슈트',
+] as const
+
+export type AircraftCategory = typeof AIRCRAFT_CATEGORIES[number]
+
+/** 단독 비행인지 교관 동승인지 */
+export type PilotRole = 'solo' | 'dual'
+
+export interface Aircraft {
+  id: string
+  user_id?: string
+  /** 등록기호 */
+  registration: string
+  category: AircraftCategory
+  model: string | null
+  note: string | null
+  created_at?: string
+}
