@@ -3,11 +3,12 @@
     {
       "source": "/",
       "has": [{ "type": "host", "value": "lsa.joy.it.kr" }],
-      "destination": "/lsa",
+      "destination": "/hub",
       "permanent": false
     }
   ],
   "rewrites": [
+    { "source": "/hub", "destination": "/hub/index.html" },
     { "source": "/lsa", "destination": "/lsa/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

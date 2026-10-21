@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prebuild": "node scripts/inject-switch.mjs"
   },
   "dependencies": {
     "@fontsource/noto-sans-kr": "^5.2.9",
